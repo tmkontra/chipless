@@ -10,9 +10,9 @@ import java.time.Instant
 
 @Entity
 class Player(
-    @Id @GeneratedValue var id: Long,
     var name: String,
     @ManyToOne(fetch = FetchType.EAGER) var game: Game,
     var buyCount: Int = 0,
-    var addedAt: Instant = Instant.now()
+    var addedAt: Instant = Instant.now(),
+    @Id @GeneratedValue var id: Long = 0L,
 )
