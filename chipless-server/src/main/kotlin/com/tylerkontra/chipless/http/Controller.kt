@@ -1,11 +1,13 @@
 package com.tylerkontra.chipless.http
 
 import com.tylerkontra.chipless.http.protocol.CreateGame
+import com.tylerkontra.chipless.http.protocol.GameAdminView
+import com.tylerkontra.chipless.http.protocol.Player
+import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
 import com.tylerkontra.chipless.http.protocol.Game as ProtocolGame
 import com.tylerkontra.chipless.http.protocol.Player as ProtocolPlayer
-import com.tylerkontra.chipless.storage.game.Game
-import com.tylerkontra.chipless.storage.game.GameRepository
+import jakarta.transaction.Transactional
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -22,22 +24,17 @@ class Controller(
         return "Welcome to Chipless"
     }
 
-    @PostMapping("/start")
+    @PostMapping("/game")
     fun startGame(@RequestBody game: CreateGame): ProtocolGame {
-        var g = gameService.createGame(game)
+        val g = gameService.createGame(game)
         return ProtocolGame.fromModel(g)
     }
 
-    @PostMapping("/join")
-    fun joinGame(@RequestParam code: String, @RequestParam playerName: String): ProtocolPlayer {
-        var p = gameService.addPlayer(code, playerName)
+
+    @GetMapping("/player/{code}")
+    fun viewPlayer(@PathVariable code: ShortCode): ProtocolPlayer {
+        val p = gameService.findPlayerByCode(code) ?: throw Exception("player not found")
         return ProtocolPlayer.fromModel(p)
     }
 
-    @GetMapping("/game/{code}")
-    fun viewGame(@PathVariable code: String): ProtocolGame {
-        var g: com.tylerkontra.chipless.model.Game =
-            gameService.findGameByCode(code) ?: throw Exception("game not found")
-        return ProtocolGame.fromModel(g)
-    }
 }
