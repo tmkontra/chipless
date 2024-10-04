@@ -176,8 +176,28 @@ data class PlayerHandView(
 
     fun isPlayerTurn(): Boolean {
         if (isFinished()) return false
-        if (hand.rounds.isEmpty()) throw ChiplessErrror.InvalidStateError("no betting round")
-        var p = hand.rounds.last().getCurrentActionPlayer() ?: throw ChiplessErrror.InvalidStateError("no action player in current betting round")
+        var r = currentRound() ?: throw ChiplessErrror.InvalidStateError("no current betting round")
+        var p = r.getCurrentActionPlayer() ?: throw ChiplessErrror.InvalidStateError("no action player in current betting round")
         return p.id == this.player.id
+    }
+
+    fun currentRound(): BettingRound? {
+        if (hand.rounds.isEmpty()) throw ChiplessErrror.InvalidStateError("no betting round")
+        return hand.rounds.lastOrNull()
+    }
+
+    fun availableActions(): List<PlayerAction> {
+        var actions: MutableList<PlayerAction> = mutableListOf(PlayerAction.Fold)
+        var r = currentRound() ?: throw ChiplessErrror.InvalidStateError("no current betting round")
+        if (player.outstandingChips <= 0) return actions
+        if (r.actions.any { when (it.action) {
+            is PlayerAction.Bet -> true
+            else -> false
+        }}) {
+            actions.addAll(listOf(PlayerAction.Call, PlayerAction.Raise(player.outstandingChips)))
+        } else {
+            actions.add(PlayerAction.Bet(player.outstandingChips))
+        }
+        return actions
     }
 }

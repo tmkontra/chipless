@@ -1,6 +1,7 @@
 package com.tylerkontra.chipless.http.protocol
 
 import com.tylerkontra.chipless.model.Money
+import com.tylerkontra.chipless.model.PlayerAction
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
 import org.springframework.core.convert.converter.Converter
@@ -121,6 +122,7 @@ data class PlayerHandView(
     val hand: Hand,
     val player: Player,
     val isTurn: Boolean,
+    val availableActions: List<PlayerAction>
 ) {
     companion object {
         fun fromModel(v: com.tylerkontra.chipless.model.PlayerHandView): PlayerHandView {
@@ -128,6 +130,7 @@ data class PlayerHandView(
                 hand = Hand.fromModel(v.hand),
                 player = Player.fromModel(v.player),
                 isTurn = v.isPlayerTurn(),
+                availableActions = v.availableActions(),
             )
         }
     }
