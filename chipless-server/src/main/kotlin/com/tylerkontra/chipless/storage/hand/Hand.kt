@@ -7,21 +7,37 @@ import java.util.*
 
 @Entity
 @Table(uniqueConstraints=[
-    UniqueConstraint(columnNames = ["game_id", "sequence"])
+    UniqueConstraint(columnNames = ["game", "sequence"])
 ])
 class Hand(
-    val sequence: Int,
+    var sequence: Int,
     @ManyToOne(fetch = FetchType.EAGER, cascade = [CascadeType.ALL])
-    val game: Game,
-    @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
-    val players: MutableList<Player> = mutableListOf(),
-    @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
-    val sittingOut: MutableList<Player> = mutableListOf(),
+    var game: Game,
     @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
-    val rounds: MutableList<BettingRound> = mutableListOf(),
+    @OrderBy(value = "sequence ASC")
+    var players: MutableList<HandPlayer> = mutableListOf(),
+    @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
+    var sittingOut: MutableList<Player> = mutableListOf(),
     @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
-    val winners: MutableList<HandWinner> = mutableListOf(),
-    @Id val id: UUID = UUID.randomUUID()
+    var rounds: MutableList<BettingRound> = mutableListOf(),
+    @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
+    var winners: MutableList<HandWinner> = mutableListOf(),
+    @Id var id: UUID = UUID.randomUUID()
+)
+
+@Entity
+@Table(uniqueConstraints=[
+    UniqueConstraint(columnNames = ["hand", "player"]),
+    UniqueConstraint(columnNames = ["hand", "sequence"])
+])
+class HandPlayer(
+    @ManyToOne
+    var player: Player,
+    @ManyToOne
+    var hand: Hand,
+    var sequence: Int,
+    var initialChips: Int,
+    @Id var id: UUID = UUID.randomUUID()
 )
 
 @Entity
@@ -31,6 +47,8 @@ class BettingRound(
     val hand: Hand,
     @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
     val players: MutableList<Player> = mutableListOf(),
+    @OneToMany(mappedBy = "round", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
+        val actions: MutableList<BettingAction> = mutableListOf(),
     @Id val id: UUID = UUID.randomUUID(),
 )
 
@@ -39,6 +57,8 @@ class BettingAction(
     val sequence: Int,
     @ManyToOne(fetch = FetchType.EAGER)
     val player: Player,
+    @ManyToOne(fetch = FetchType.EAGER)
+    val round: BettingRound,
     @Enumerated(EnumType.STRING)
     val actionType: BettingActionType,
     val chipCount: Int? = null, // when BET or RAISE

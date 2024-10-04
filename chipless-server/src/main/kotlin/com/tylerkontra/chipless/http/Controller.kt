@@ -30,11 +30,4 @@ class Controller(
         return ProtocolGame.fromModel(g)
     }
 
-
-    @GetMapping("/player/{code}")
-    fun viewPlayer(@PathVariable code: ShortCode): ProtocolPlayer {
-        val p = gameService.findPlayerByCode(code) ?: throw Exception("player not found")
-        return ProtocolPlayer.fromModel(p)
-    }
-
 }

@@ -1,12 +1,10 @@
 package com.tylerkontra.chipless.service
 
-import com.tylerkontra.chipless.model.Game
-import com.tylerkontra.chipless.model.Money
-import com.tylerkontra.chipless.model.Player
-import com.tylerkontra.chipless.model.ShortCode
+import com.tylerkontra.chipless.model.*
 import com.tylerkontra.chipless.storage.game.GameRepository
+import com.tylerkontra.chipless.storage.hand.*
+import com.tylerkontra.chipless.storage.hand.BettingRound
 import com.tylerkontra.chipless.storage.hand.Hand
-import com.tylerkontra.chipless.storage.hand.HandRepository
 import com.tylerkontra.chipless.storage.player.Cashout
 import com.tylerkontra.chipless.storage.player.PlayerRepository
 import jakarta.persistence.EntityManager
@@ -18,6 +16,7 @@ class GameService(
     private val gameRepository: GameRepository,
     private val playerRepository: PlayerRepository,
     private val handRepository: HandRepository,
+    private val bettingRoundRepository: BettingRoundRepository,
     private val entityManager: EntityManager,
 ) {
     fun createGame(game: CreateGame): Game {
@@ -30,8 +29,8 @@ class GameService(
         return Game.fromStorage(created)
     }
 
-    fun addPlayer(code: String, playerName: String): Player {
-        var game = gameRepository.findGameByShortCode(code)
+    fun addPlayer(code: ShortCode, playerName: String): Player {
+        var game = gameRepository.findGameByShortCode(code.value)
         if (game.isEmpty) {
             throw Exception("no game found")
         }
@@ -42,8 +41,8 @@ class GameService(
         return Player.fromStorage(player)
     }
 
-    fun findGameByCode(code: String): Game? {
-        return gameRepository.findGameByShortCode(code).map { Game.fromStorage(it) }.getOrNull()
+    fun findGameByCode(code: ShortCode): Game? {
+        return gameRepository.findGameByShortCode(code.value).map { Game.fromStorage(it) }.getOrNull()
     }
 
     fun findPlayerByCode(code: ShortCode): Player? {
@@ -70,14 +69,33 @@ class GameService(
     }
 
     private fun createHand(game: Game, sequence: Int, excludePlayerIds: List<Long>): Hand {
-        return handRepository.save(
+        var (sittingOut, playing) = game.players.partition { excludePlayerIds.contains(it.id) }
+        var hand =  handRepository.save(
             Hand(
                 sequence,
                 entityManager.getReference(com.tylerkontra.chipless.storage.game.Game::class.java, game.id),
-                game.players.map { playerRef(it) }.toMutableList(),
-                game.players.filter { excludePlayerIds.contains(it.id) }.map { playerRef(it) }.toMutableList(),
+                mutableListOf(),
+                sittingOut.map(::playerRef).toMutableList(),
             )
         )
+        hand.players.addAll(
+            playing.mapIndexed { index, player ->
+                HandPlayer(playerRef(player), hand, index+1, player.outstandingChips)
+            }.toMutableList())
+        val bettingRound = BettingRound(
+            1,
+            entityManager.getReference(Hand::class.java, hand.id),
+            hand.players.map { p ->
+                entityManager.getReference(
+                    com.tylerkontra.chipless.storage.player.Player::class.java,
+                    p.player.id
+                )
+            }.toMutableList<com.tylerkontra.chipless.storage.player.Player>(), // TODO: exclude fold
+            mutableListOf(),
+        )
+        hand.rounds.add(bettingRound)
+        hand = handRepository.save(hand)
+        return hand
     }
 
     private fun playerRef(it: Player): com.tylerkontra.chipless.storage.player.Player =
@@ -89,20 +107,26 @@ class GameService(
 
     fun startHand(g: Game, excludePlayerIds: List<Long>): Game {
         var game = gameRepository.findById(g.id).get()
-        g.latestHand()?.apply {
-            if (isFinished) {
-                val h = createHand(g, sequence + 1, excludePlayerIds)
+        g.latestHand()?.let {
+            if (it.isFinished) {
+                val h = createHand(g, it.sequence + 1, excludePlayerIds)
                 game.hands.add(h)
             } else {
-                throw Exception("cannot start hand")
+                throw ChiplessErrror.InvalidStateError("cannot start hand, previous hand not finished")
             }
         } ?: apply {
-            println("first hand!")
             val h = createHand(g, 1, excludePlayerIds)
             game.hands.add(h)
         }
         val updated = gameRepository.save(game)
         return Game.fromStorage(updated)
+    }
+
+    fun getPlayerHandViewByCode(playerCode: ShortCode): PlayerHandView {
+        var p = findPlayerByCode(playerCode) ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("player")
+        val g = findGameByCode(p.game.shortCode) ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("game")
+        val hand = g.latestHand() ?: throw ChiplessErrror.InvalidStateError("game has no current hand")
+        return PlayerHandView(p, hand)
     }
 
     companion object {

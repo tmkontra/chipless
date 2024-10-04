@@ -11,7 +11,7 @@ class Game(
     var buyinCents: Int,
     var buyinChips: Int,
     var shortCode: String = newGameCode(),
-    val adminCode: String = newAdminCode(),
+    var adminCode: String = newAdminCode(),
     @OneToMany(mappedBy = "game", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
         var players: List<Player> = listOf(),
     @OneToMany(mappedBy = "game", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)

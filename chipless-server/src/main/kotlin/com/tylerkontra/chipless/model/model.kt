@@ -60,9 +60,11 @@ data class Game(
     }
 }
 
-data class GameInfo(val shortCode: ShortCode,
-                    val buyinAmount: Money,
-                    val buyinChips: Int)
+data class GameInfo(
+    val id: Long,
+    val shortCode: ShortCode,
+    val buyinAmount: Money,
+    val buyinChips: Int)
 
 data class Player(
     val id: Long,
@@ -73,6 +75,7 @@ data class Player(
     val game: GameInfo,
 ) {
     val totalCashout: Int = cashouts.sumOf { it.amount }
+    val outstandingChips: Int = game.buyinChips * this.buyCount - this.totalCashout
 
     companion object {
         fun fromStorage(player: com.tylerkontra.chipless.storage.player.Player): Player {
@@ -84,6 +87,7 @@ data class Player(
                 player.cashouts.map { Cashout.fromStorage(it) },
                 player.game.let {
                     GameInfo(
+                        it.id,
                         ShortCode(it.shortCode),
                         Money.fromInt(it.buyinCents),
                         it.buyinChips,
@@ -117,9 +121,9 @@ data class Hand(
             return Hand(
                 hand.id,
                 hand.sequence,
-                hand.players.map { Player.fromStorage(it) },
+                hand.players.map { Player.fromStorage(it.player) },
                 hand.sittingOut.map { Player.fromStorage(it) },
-                listOf(),
+                hand.rounds.map { BettingRound.fromStorage(it) },
                 listOf(),
             )
         }
@@ -131,7 +135,18 @@ data class BettingRound (
     val sequence: Int,
     val players: List<Player>,
     val actions: List<BettingAction>,
-)
+) {
+    // TODO: ensure players and actions are in seat-order
+    fun getCurrentActionPlayer(): Player?{
+        return players.dropWhile { p -> actions.any { act -> act.player.id == p.id } }.firstOrNull()
+    }
+
+    companion object {
+        fun fromStorage(it: com.tylerkontra.chipless.storage.hand.BettingRound): BettingRound {
+            return BettingRound(it.id, it.sequence, it.players.map(Player::fromStorage), listOf())
+        }
+    }
+}
 
 data class BettingAction(
     val id: UUID,
@@ -152,3 +167,17 @@ data class PlayerWin(
     val player: Player,
     val chipCount: Int,
 )
+
+data class PlayerHandView(
+    val player: Player,
+    val hand: Hand,
+) {
+    fun isFinished(): Boolean = hand.isFinished
+
+    fun isPlayerTurn(): Boolean {
+        if (isFinished()) return false
+        if (hand.rounds.isEmpty()) throw ChiplessErrror.InvalidStateError("no betting round")
+        var p = hand.rounds.last().getCurrentActionPlayer() ?: throw ChiplessErrror.InvalidStateError("no action player in current betting round")
+        return p.id == this.player.id
+    }
+}

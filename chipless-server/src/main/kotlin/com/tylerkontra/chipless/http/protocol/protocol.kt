@@ -42,8 +42,7 @@ data class Player(
 ) {
     companion object {
         fun fromModel(p: com.tylerkontra.chipless.model.Player): Player {
-            val chips = p.game.buyinChips * p.buyCount - p.totalCashout
-            return Player(p.name, p.buyCount, chips)
+            return Player(p.name, p.buyCount, p.outstandingChips)
         }
     }
 }
@@ -97,9 +96,39 @@ class ShortCodeDeserializer : Converter<String, ShortCode> {
 data class Hand(
     val id: UUID,
     val sequence: Int,
+    val players: List<Player>,
+    val rounds: List<BettingRound>,
 ) {
     companion object {
         fun fromModel(hand: com.tylerkontra.chipless.model.Hand) =
-            Hand(hand.id, hand.sequence)
+            Hand(
+                hand.id,
+                hand.sequence,
+                hand.players.map(Player::fromModel),
+                hand.rounds.map { BettingRound.fromModel(it) })
+    }
+}
+
+data class BettingRound(val id: UUID, val players: List<Player>) {
+    companion object {
+        fun fromModel(it: com.tylerkontra.chipless.model.BettingRound): BettingRound {
+            return BettingRound(it.id, it.players.map { Player.fromModel(it) })
+        }
+    }
+}
+
+data class PlayerHandView(
+    val hand: Hand,
+    val player: Player,
+    val isTurn: Boolean,
+) {
+    companion object {
+        fun fromModel(v: com.tylerkontra.chipless.model.PlayerHandView): PlayerHandView {
+            return PlayerHandView(
+                hand = Hand.fromModel(v.hand),
+                player = Player.fromModel(v.player),
+                isTurn = v.isPlayerTurn(),
+            )
+        }
     }
 }
