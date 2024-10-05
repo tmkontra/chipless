@@ -3,8 +3,10 @@ package com.tylerkontra.chipless.service
 import com.tylerkontra.chipless.model.*
 import com.tylerkontra.chipless.storage.game.GameRepository
 import com.tylerkontra.chipless.storage.hand.*
+import com.tylerkontra.chipless.storage.hand.BettingAction
 import com.tylerkontra.chipless.storage.hand.BettingRound
 import com.tylerkontra.chipless.storage.hand.Hand
+import com.tylerkontra.chipless.storage.hand.HandPlayer
 import com.tylerkontra.chipless.storage.player.Cashout
 import com.tylerkontra.chipless.storage.player.PlayerRepository
 import jakarta.persistence.EntityManager
@@ -127,6 +129,34 @@ class GameService(
         val g = findGameByCode(p.game.shortCode) ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("game")
         val hand = g.latestHand() ?: throw ChiplessErrror.InvalidStateError("game has no current hand")
         return PlayerHandView(p, hand)
+    }
+
+    fun doPlayerAction(hand: PlayerHandView, action: PlayerAction): PlayerHandView {
+        if (!hand.isPlayerTurn()) {
+            throw ChiplessErrror.InvalidStateError("it is not your turn to act")
+        }
+        if (!hand.allowAction(action)) {
+            throw ChiplessErrror.InvalidStateError("the requested action is not allowed")
+        }
+        var row = handRepository.findById(hand.hand.id).orElseThrow { ChiplessErrror.ResourceNotFoundError.ofEntity("hand") }
+        var newAction = BettingAction(
+            hand.nextActionSequence(),
+            playerRef(hand.player),
+            row.rounds.last(),
+            action.actionType,
+        )
+        if (action is PlayerAction.ChipAction) {
+            newAction.chipCount = action.chipCount
+        }
+        row.rounds.last().actions.add(newAction)
+        if (row.isComplete()) {
+            row.uncontestedWin()
+        }
+        var updatedHand = handRepository.save(row)
+        if (row.isComplete()) {
+            startHand(Game.fromStorage(row.game), listOf())
+        }
+        return PlayerHandView(hand.player, com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand))
     }
 
     companion object {

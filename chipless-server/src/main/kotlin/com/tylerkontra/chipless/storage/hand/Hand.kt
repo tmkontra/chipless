@@ -19,9 +19,38 @@ class Hand(
     @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
     var sittingOut: MutableList<Player> = mutableListOf(),
     @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
+    @OrderBy("sequence ASC")
     var rounds: MutableList<BettingRound> = mutableListOf(),
     @Id var id: UUID = UUID.randomUUID()
-)
+) {
+    fun currentPot(): Int =
+        rounds.sumOf { r -> r.actions.sumOf { it.chipCount ?: 0 }}
+
+    // All the players who have NOT folded
+    fun nextRoundPlayers(): List<HandPlayer> =
+        players.filterNot(::playerHasFolded)
+
+    fun playerHasFolded(p: HandPlayer): Boolean =
+        rounds.any { r ->
+            r.actions.any { act -> act.player.id == p.player.id && act.actionType == BettingActionType.FOLD }
+        }
+
+    fun isComplete(): Boolean {
+        // pot uncontested
+        return nextRoundPlayers().size < 2
+    }
+
+    fun uncontestedWin() {
+        if (nextRoundPlayers().size == 1) {
+            nextRoundPlayers().first().winnings = currentPot()
+        } else {
+            throw IllegalArgumentException("pot is not uncontested")
+        }
+    }
+
+    fun playerActions(handPlayer: HandPlayer): List<BettingAction> =
+        rounds.flatMap { r -> r.actions.filter { a -> a.player.id == handPlayer.player.id } }
+}
 
 @Entity
 @Table(uniqueConstraints=[
@@ -47,21 +76,22 @@ class BettingRound(
     @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
     val players: MutableList<Player> = mutableListOf(),
     @OneToMany(mappedBy = "round", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
+    @OrderBy("sequence ASC")
     val actions: MutableList<BettingAction> = mutableListOf(),
     @Id val id: UUID = UUID.randomUUID(),
 )
 
 @Entity
 class BettingAction(
-    val sequence: Int,
+    var sequence: Int,
     @ManyToOne(fetch = FetchType.EAGER)
-    val player: Player,
+    var player: Player,
     @ManyToOne(fetch = FetchType.EAGER)
-    val round: BettingRound,
+    var round: BettingRound,
     @Enumerated(EnumType.STRING)
-    val actionType: BettingActionType,
-    val chipCount: Int? = null, // when BET or RAISE
-    @Id val id: UUID = UUID.randomUUID(),
+    var actionType: BettingActionType,
+    var chipCount: Int? = null, // when BET or RAISE
+    @Id var id: UUID = UUID.randomUUID(),
 )
 
 enum class BettingActionType {

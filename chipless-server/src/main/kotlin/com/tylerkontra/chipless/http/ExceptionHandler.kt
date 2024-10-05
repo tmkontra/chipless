@@ -7,10 +7,10 @@ import org.springframework.web.bind.annotation.ControllerAdvice
 import org.springframework.web.bind.annotation.ExceptionHandler
 
 @ControllerAdvice
-class GlobalExceptionHandler {
+class ExceptionHandler {
 
     @ExceptionHandler(ChiplessErrror.InvalidStateError::class)
-    fun handleUserNotFoundException(ex: ChiplessErrror.InvalidStateError): ResponseEntity<ErrorResponse> {
+    fun handleInvalidStateError(ex: ChiplessErrror.InvalidStateError): ResponseEntity<ErrorResponse> {
         val error = ErrorResponse(ex.message ?: "request would result in invalid state")
         return ResponseEntity(error, HttpStatus.BAD_REQUEST)
     }

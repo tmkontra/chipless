@@ -1,5 +1,6 @@
 package com.tylerkontra.chipless.http.protocol
 
+import com.tylerkontra.chipless.model.ChiplessErrror
 import com.tylerkontra.chipless.model.Money
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
@@ -39,11 +40,10 @@ data class Game(
 data class Player(
     val name: String,
     val buyCount: Int,
-    val outstandingChips: Int,
 ) {
     companion object {
         fun fromModel(p: com.tylerkontra.chipless.model.Player): Player {
-            return Player(p.name, p.buyCount, p.outstandingChips)
+            return Player(p.name, p.buyCount)
         }
     }
 }
@@ -97,7 +97,7 @@ class ShortCodeDeserializer : Converter<String, ShortCode> {
 data class Hand(
     val id: UUID,
     val sequence: Int,
-    val players: List<Player>,
+    val players: List<HandPlayer>,
     val rounds: List<BettingRound>,
 ) {
     companion object {
@@ -105,13 +105,30 @@ data class Hand(
             Hand(
                 hand.id,
                 hand.sequence,
-                hand.players.map(Player::fromModel),
+                hand.players.map(HandPlayer::fromModel),
                 hand.rounds.map { BettingRound.fromModel(it) })
+    }
+}
+
+data class HandPlayer(
+    val player: Player,
+    val winnings: Int?,
+    val wager: Int?,
+) {
+    companion object {
+        fun fromModel(player: com.tylerkontra.chipless.model.HandPlayer): HandPlayer {
+            return HandPlayer(
+                player = Player.fromModel(player.player),
+                winnings = player.winnings,
+                wager = player.wager,
+            )
+        }
     }
 }
 
 data class BettingRound(
     val id: UUID,
+    var sequence: Int,
     val players: List<Player>,
     val actions: List<PlayerAction>,
 ) {
@@ -119,6 +136,7 @@ data class BettingRound(
         fun fromModel(it: com.tylerkontra.chipless.model.BettingRound): BettingRound {
             return BettingRound(
                 it.id,
+                it.sequence,
                 it.players.map { Player.fromModel(it) },
                 it.actions.map { PlayerAction.fromModel(it.action) }
             )
@@ -129,7 +147,6 @@ data class BettingRound(
 data class PlayerHandView(
     val hand: Hand,
     val player: Player,
-    val rounds: List<BettingRound>,
     val isTurn: Boolean,
     val availableActions: List<PlayerAction?>
 ) {
@@ -140,14 +157,31 @@ data class PlayerHandView(
                 player = Player.fromModel(v.player),
                 isTurn = v.isPlayerTurn(),
                 availableActions = v.availableActions().map(PlayerAction::fromModel),
-                rounds = v.hand.rounds.map(BettingRound::fromModel)
             )
         }
     }
 }
 
 
-data class PlayerAction(val actionType: BettingActionType, val chipCount: Int? = null) {
+data class PlayerAction(
+    val actionType: BettingActionType,
+    val chipCount: Int? = null
+) {
+    fun toModel(): com.tylerkontra.chipless.model.PlayerAction {
+        return when(this.actionType) {
+            BettingActionType.FOLD -> com.tylerkontra.chipless.model.PlayerAction.Fold
+            BettingActionType.CALL -> com.tylerkontra.chipless.model.PlayerAction.Call
+            BettingActionType.CHECK -> com.tylerkontra.chipless.model.PlayerAction.Check
+            else -> chipCount?.let {
+                when (this.actionType) {
+                    BettingActionType.BET -> com.tylerkontra.chipless.model.PlayerAction.Bet(chipCount)
+                    BettingActionType.RAISE -> com.tylerkontra.chipless.model.PlayerAction.Raise(chipCount)
+                    else -> throw Exception("unreachable")
+                }
+            } ?: throw IllegalArgumentException("action type requires chip count")
+        }
+    }
+
     companion object {
         fun fromModel(a: com.tylerkontra.chipless.model.PlayerAction): PlayerAction {
             return when (a) {

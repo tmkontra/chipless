@@ -52,9 +52,7 @@ class PlayerController(
         if (!currentHand.matches(handState)) {
              throw ResponseStatusException(HttpStatus.PRECONDITION_FAILED)
         }
-        if (!currentHand.isPlayerTurn()) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "it is not your turn to act")
-        }
-        return PlayerHandView.fromModel(currentHand)
+        val updatedHand = gameService.doPlayerAction(currentHand, action.toModel())
+        return PlayerHandView.fromModel(updatedHand)
     }
 }
