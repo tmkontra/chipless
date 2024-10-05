@@ -20,8 +20,6 @@ class Hand(
     var sittingOut: MutableList<Player> = mutableListOf(),
     @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
     var rounds: MutableList<BettingRound> = mutableListOf(),
-    @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
-    var winners: MutableList<HandWinner> = mutableListOf(),
     @Id var id: UUID = UUID.randomUUID()
 )
 
@@ -37,6 +35,7 @@ class HandPlayer(
     var hand: Hand,
     var sequence: Int,
     var initialChips: Int,
+    var winnings: Int? = null,
     @Id var id: UUID = UUID.randomUUID()
 )
 
@@ -48,7 +47,7 @@ class BettingRound(
     @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
     val players: MutableList<Player> = mutableListOf(),
     @OneToMany(mappedBy = "round", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
-        val actions: MutableList<BettingAction> = mutableListOf(),
+    val actions: MutableList<BettingAction> = mutableListOf(),
     @Id val id: UUID = UUID.randomUUID(),
 )
 
@@ -68,13 +67,3 @@ class BettingAction(
 enum class BettingActionType {
     CHECK, FOLD, BET, RAISE, CALL
 }
-
-@Entity
-class HandWinner(
-    @ManyToOne(fetch = FetchType.EAGER)
-    val player: Player,
-    val chipCount: Int,
-    @ManyToOne(fetch = FetchType.EAGER)
-    val hand: Hand,
-    @Id val id: UUID = UUID.randomUUID(),
-)

@@ -1,6 +1,8 @@
 package com.tylerkontra.chipless.model
 
+import com.tylerkontra.chipless.storage.hand.BettingActionType
 import java.math.BigDecimal
+import java.security.MessageDigest
 import java.util.UUID
 
 class ShortCode(input: String) {
@@ -45,16 +47,16 @@ data class Game(
         hands.maxByOrNull { it.sequence }
 
     companion object {
-        fun fromStorage(created: com.tylerkontra.chipless.storage.game.Game): Game {
+        fun fromStorage(game: com.tylerkontra.chipless.storage.game.Game): Game {
             return Game(
-                created.id,
-                ShortCode(created.shortCode),
-                ShortCode(created.adminCode),
-                created.name,
-                Money.fromInt(created.buyinCents),
-                created.buyinChips,
-                created.players.map { Player.fromStorage(it) },
-                created.hands.map { Hand.fromStorage(it) },
+                game.id,
+                ShortCode(game.shortCode),
+                ShortCode(game.adminCode),
+                game.name,
+                Money.fromInt(game.buyinCents),
+                game.buyinChips,
+                game.players.map { Player.fromStorage(it) },
+                game.hands.map { Hand.fromStorage(it) },
             )
         }
     }
@@ -143,7 +145,12 @@ data class BettingRound (
 
     companion object {
         fun fromStorage(it: com.tylerkontra.chipless.storage.hand.BettingRound): BettingRound {
-            return BettingRound(it.id, it.sequence, it.players.map(Player::fromStorage), listOf())
+            return BettingRound(
+                it.id,
+                it.sequence,
+                it.players.map(Player::fromStorage),
+                it.actions.map(BettingAction::fromStorage)
+            )
         }
     }
 }
@@ -153,7 +160,18 @@ data class BettingAction(
     val sequence: Int,
     val player: Player,
     val action: PlayerAction,
-)
+) {
+    companion object {
+        fun fromStorage(action: com.tylerkontra.chipless.storage.hand.BettingAction): BettingAction {
+            return BettingAction(
+                action.id,
+                action.sequence,
+                Player.fromStorage(action.player),
+                PlayerAction.fromStorage(action.actionType, action.chipCount),
+            )
+        }
+    }
+}
 
 sealed class PlayerAction {
     object Check: PlayerAction()
@@ -161,6 +179,16 @@ sealed class PlayerAction {
     object Call: PlayerAction()
     data class Bet(val amount: Int): PlayerAction()
     data class Raise(val to: Int): PlayerAction()
+    companion object {
+        fun fromStorage(actionType: BettingActionType, chipCount: Int?): PlayerAction =
+            when (actionType) {
+                BettingActionType.FOLD -> Fold
+                BettingActionType.CALL -> Call
+                BettingActionType.CHECK -> Check
+                BettingActionType.BET -> Bet(chipCount ?: throw ChiplessErrror.CorruptStateError("bet has no chip count"))
+                BettingActionType.RAISE -> Raise(chipCount ?: throw ChiplessErrror.CorruptStateError("raise has no chip count"))
+            }
+    }
 }
 
 data class PlayerWin(
@@ -199,5 +227,21 @@ data class PlayerHandView(
             actions.add(PlayerAction.Bet(player.outstandingChips))
         }
         return actions
+    }
+
+    fun matches(handState: String): Boolean {
+        return nextActionState().equals(handState)
+    }
+
+    @OptIn(ExperimentalStdlibApi::class)
+    fun nextActionState(): String {
+        var d = MessageDigest.getInstance("SHA-256")
+        d.update(this.hand.id.toString().toByteArray())
+        val currentRound = this.currentRound() ?: throw ChiplessErrror.InvalidStateError("no current betting round")
+        d.update(currentRound.id.toString().toByteArray())
+        currentRound.actions.lastOrNull()?.also {
+            d.update(it.id.toString().toByteArray())
+        }
+        return d.digest().toHexString()
     }
 }

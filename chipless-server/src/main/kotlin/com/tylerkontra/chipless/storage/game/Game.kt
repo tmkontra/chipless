@@ -13,6 +13,7 @@ class Game(
     var shortCode: String = newGameCode(),
     var adminCode: String = newAdminCode(),
     @OneToMany(mappedBy = "game", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy(value = "addedAt ASC")
         var players: List<Player> = listOf(),
     @OneToMany(mappedBy = "game", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
         var hands: MutableList<Hand> = mutableListOf(),

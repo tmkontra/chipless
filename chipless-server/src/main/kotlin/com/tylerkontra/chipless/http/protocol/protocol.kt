@@ -1,9 +1,9 @@
 package com.tylerkontra.chipless.http.protocol
 
 import com.tylerkontra.chipless.model.Money
-import com.tylerkontra.chipless.model.PlayerAction
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
+import com.tylerkontra.chipless.storage.hand.BettingActionType
 import org.springframework.core.convert.converter.Converter
 import org.springframework.stereotype.Component
 import java.math.BigDecimal
@@ -110,10 +110,18 @@ data class Hand(
     }
 }
 
-data class BettingRound(val id: UUID, val players: List<Player>) {
+data class BettingRound(
+    val id: UUID,
+    val players: List<Player>,
+    val actions: List<PlayerAction>,
+) {
     companion object {
         fun fromModel(it: com.tylerkontra.chipless.model.BettingRound): BettingRound {
-            return BettingRound(it.id, it.players.map { Player.fromModel(it) })
+            return BettingRound(
+                it.id,
+                it.players.map { Player.fromModel(it) },
+                it.actions.map { PlayerAction.fromModel(it.action) }
+            )
         }
     }
 }
@@ -121,8 +129,9 @@ data class BettingRound(val id: UUID, val players: List<Player>) {
 data class PlayerHandView(
     val hand: Hand,
     val player: Player,
+    val rounds: List<BettingRound>,
     val isTurn: Boolean,
-    val availableActions: List<PlayerAction>
+    val availableActions: List<PlayerAction?>
 ) {
     companion object {
         fun fromModel(v: com.tylerkontra.chipless.model.PlayerHandView): PlayerHandView {
@@ -130,8 +139,24 @@ data class PlayerHandView(
                 hand = Hand.fromModel(v.hand),
                 player = Player.fromModel(v.player),
                 isTurn = v.isPlayerTurn(),
-                availableActions = v.availableActions(),
+                availableActions = v.availableActions().map(PlayerAction::fromModel),
+                rounds = v.hand.rounds.map(BettingRound::fromModel)
             )
+        }
+    }
+}
+
+
+data class PlayerAction(val actionType: BettingActionType, val chipCount: Int? = null) {
+    companion object {
+        fun fromModel(a: com.tylerkontra.chipless.model.PlayerAction): PlayerAction {
+            return when (a) {
+                is com.tylerkontra.chipless.model.PlayerAction.Fold -> PlayerAction(BettingActionType.FOLD)
+                is com.tylerkontra.chipless.model.PlayerAction.Bet -> PlayerAction(BettingActionType.BET, a.amount)
+                com.tylerkontra.chipless.model.PlayerAction.Call -> PlayerAction(BettingActionType.CALL)
+                com.tylerkontra.chipless.model.PlayerAction.Check -> PlayerAction(BettingActionType.CHECK)
+                is com.tylerkontra.chipless.model.PlayerAction.Raise -> PlayerAction(BettingActionType.RAISE, a.to)
+            }
         }
     }
 }

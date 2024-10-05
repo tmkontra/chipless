@@ -7,4 +7,5 @@ sealed class ChiplessErrror(message: String) : Exception(message) {
             fun ofEntity(name: String) = ResourceNotFoundError("${name} not found")
         }
     }
+    class CorruptStateError(message: String) : ChiplessErrror(message)
 }
