@@ -10,6 +10,7 @@ import com.tylerkontra.chipless.storage.hand.HandPlayer
 import com.tylerkontra.chipless.storage.player.Cashout
 import com.tylerkontra.chipless.storage.player.PlayerRepository
 import jakarta.persistence.EntityManager
+import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import kotlin.jvm.optionals.getOrNull
 
@@ -70,25 +71,30 @@ class GameService(
         return Player.fromStorage(updated)
     }
 
-    private fun createHand(game: Game, sequence: Int, excludePlayerIds: List<Long>): Hand {
+    private fun createHand(game: Game, input: HandInput): Hand {
+        val sequence = input.sequence
+        val excludePlayerIds = input.excludePlayerIds
         var (sittingOut, playing) = game.playerChips().partition { excludePlayerIds.contains(it.id) || it.availableChips <= 0 }
         var hand =  handRepository.save(
             Hand(
                 sequence,
                 entityManager.getReference(com.tylerkontra.chipless.storage.game.Game::class.java, game.id),
                 mutableListOf(),
-                sittingOut.map { playerRef(it.player) } .toMutableList(),
+                sittingOut.map { playerRef(it.player) }.toMutableList(),
             )
         )
-        hand.players.addAll(
-            playing.mapIndexed { index, player ->
-                HandPlayer(
-                    playerRef(player.player),
-                    hand,
-                    index+1,
-                    player.availableChips,
-                )
-            }.toMutableList())
+        if (input.hasSeatOrder(playing.map { it.id })) {
+            playing = playing.sortedWith(input.compareBySeatOrder { it.player })
+        }
+        val handPlayers = playing.mapIndexed { index, player ->
+            HandPlayer(
+                playerRef(player.player),
+                hand,
+                index + 1,
+                player.availableChips,
+            )
+        }
+        hand.players.addAll(handPlayers.toMutableList())
         val bettingRound = newBettingRound(hand)
         hand.rounds.add(bettingRound)
         hand = handRepository.save(hand)
@@ -98,7 +104,7 @@ class GameService(
     private fun newBettingRound(hand: Hand) = BettingRound(
         hand.rounds.size+1,
         entityManager.getReference(Hand::class.java, hand.id),
-        hand.players.map { p ->
+        hand.nextRoundPlayers().map { p ->
             entityManager.getReference(
                 com.tylerkontra.chipless.storage.player.Player::class.java,
                 p.player.id
@@ -114,17 +120,17 @@ class GameService(
                 it.id
             )
 
-    fun startHand(g: Game, ): Game {
+    fun startHand(g: Game, input: HandInput): Game {
         var game = gameRepository.findById(g.id).get()
         g.latestHand()?.let {
             if (it.isFinished) {
-                val h = createHand(g, it.sequence + 1, excludePlayerIds)
+                val h = createHand(g, input.copy(sequence = it.sequence + 1))
                 game.hands.add(h)
             } else {
                 throw ChiplessErrror.InvalidStateError("cannot start hand, previous hand not finished")
             }
         } ?: apply {
-            val h = createHand(g, 1, excludePlayerIds)
+            val h = createHand(g, input.copy(sequence = 1))
             game.hands.add(h)
         }
         val updated = gameRepository.save(game)
@@ -145,35 +151,42 @@ class GameService(
         if (!hand.allowAction(action)) {
             throw ChiplessErrror.InvalidStateError("the requested action (${action}) is not allowed: ${hand.availableActions()}")
         }
-        var row = handRepository.findById(hand.hand.id).orElseThrow { ChiplessErrror.ResourceNotFoundError.ofEntity("hand") }
+        var handRecord = handRepository.findById(hand.hand.id).orElseThrow { ChiplessErrror.ResourceNotFoundError.ofEntity("hand") }
         var newAction = BettingAction(
             hand.nextActionSequence(),
             playerRef(hand.player),
-            row.rounds.last(),
+            handRecord.rounds.last(),
             action.actionType,
         )
         if (action is PlayerAction.ChipAction) {
             newAction.chipCount = action.chipCount
         }
-        row.rounds.last().actions.add(newAction)
-        if (row.isComplete()) {
-            row.uncontestedWin()
+        handRecord.rounds.last().actions.add(newAction)
+        if (handRecord.isComplete()) {
+            handRecord.uncontestedWin()
         }
-        var updatedHand = handRepository.save(row)
-        if (row.isComplete()) {
-            startHand(Game.fromStorage(row.game), listOf())
-        }
+        var updatedHand = handRepository.save(handRecord)
         var updatedHandView = com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand)
-        if (updatedHandView.currentRound()?.isClosed() == true) {
-            var newRound = newBettingRound(updatedHand)
-            updatedHand.rounds.add(newRound)
-            updatedHand = handRepository.save(updatedHand)
-            updatedHandView = com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand)
-        }
         return PlayerHandView(hand.player, updatedHandView)
     }
 
+    fun nextBettingRound(game: Game): com.tylerkontra.chipless.model.Hand {
+        game.latestHand()?.let { hand ->
+            var hand = handRepository.findById(hand.id).getOrNull() ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("hand")
+            if (com.tylerkontra.chipless.model.Hand.fromStorage(hand).currentRound()?.isClosed() != true) {
+                throw ChiplessErrror.InvalidStateError("current betting round is not closed")
+            }
+            var newRound = newBettingRound(hand)
+            hand.rounds.add(newRound)
+            val updatedHand = handRepository.save(hand)
+            val updatedHandView = com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand)
+            return updatedHandView
+        } ?: throw ChiplessErrror.InvalidStateError("game has no current hand")
+    }
+
     companion object {
+        val logger = LoggerFactory.getLogger(GameService::class.java)
+
         interface CreateGame {
             val name: String
             fun getBuyinAmount(): Money
@@ -181,8 +194,21 @@ class GameService(
         }
 
         data class HandInput(
-            val excludePlayerIds: List<Long>,
-            val dealerPlayerId: Long,
-        )
+            val excludePlayerIds: List<Long> = listOf(),
+            // dealer id first
+            val seatOrderPlayerIds: List<Long> = listOf(),
+            val sequence: Int = 0,
+        ) {
+            private val seatOrder = compareBy<Player> { seatOrderPlayerIds.indexOf(it.id) }
+
+            fun <E> compareBySeatOrder(selector: (E) -> Player) = compareBy(seatOrder, selector)
+
+            fun hasSeatOrder(playerIds: List<Long>): Boolean {
+                if (seatOrderPlayerIds.isEmpty()) return false
+                if (seatOrderPlayerIds.toSet().intersect(playerIds.toSet()).size < playerIds.size)
+                    throw IllegalArgumentException("seat order must specify all players")
+                return true
+            }
+        }
     }
 }

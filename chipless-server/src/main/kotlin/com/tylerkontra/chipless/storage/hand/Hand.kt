@@ -27,13 +27,13 @@ class Hand(
         rounds.sumOf { r -> r.actions.sumOf { it.chipCount ?: 0 }}
 
     // All the players who have NOT folded
-    fun nextRoundPlayers(): List<HandPlayer> =
-        players.filterNot(::playerHasFolded)
-
-    fun playerHasFolded(p: HandPlayer): Boolean =
-        rounds.any { r ->
-            r.actions.any { act -> act.player.id == p.player.id && act.actionType == BettingActionType.FOLD }
+    fun nextRoundPlayers(): List<HandPlayer> {
+        val playerIds: Set<Long>? = rounds.lastOrNull()?.nextRoundPlayers()?.map { it.id }?.toSet()
+        if (playerIds != null) {
+            return players.filter { playerIds.contains(it.player.id) }
         }
+        return players
+    }
 
     fun isComplete(): Boolean {
         // pot uncontested
@@ -79,7 +79,15 @@ class BettingRound(
     @OrderBy("sequence ASC")
     val actions: MutableList<BettingAction> = mutableListOf(),
     @Id val id: UUID = UUID.randomUUID(),
-)
+) {
+    fun nextRoundPlayers(): List<Player> {
+        return players.filterNot(::playerHasFolded)
+    }
+
+    fun playerHasFolded(player: Player): Boolean {
+        return actions.any { act -> act.player.id == player.id && act.actionType == BettingActionType.FOLD }
+    }
+}
 
 @Entity
 class BettingAction(

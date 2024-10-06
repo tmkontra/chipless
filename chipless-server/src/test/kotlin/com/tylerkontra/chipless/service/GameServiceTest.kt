@@ -63,7 +63,7 @@ class GameServiceTest {
         assertThat(game.hands).isEmpty()
 
         game = transactionTemplate.execute { s ->
-            gameService.startHand(game, listOf())
+            gameService.startHand(game, GameService.Companion.HandInput())
         } ?: throw RuntimeException("game did not start")
         assertThat(game.hands).hasSize(1)
         assertThat(game.latestHand()).isNotNull()
@@ -110,8 +110,8 @@ class GameServiceTest {
         transactionTemplate.execute { status ->
             aliceView = gameService.doPlayerAction(aliceHand, PlayerAction.Call(betAmount + 40))
         }
-        assertThat(aliceView.mustCurrentRound().sequence).isEqualTo(charlieView.mustCurrentRound().sequence+1)
-        assertThat(aliceView.mustCurrentRound().getCurrentActionPlayer()).has(isPlayer(alice))
+        assertThat(aliceView.mustCurrentRound().isClosed()).isTrue()
+        assertThat(aliceView.hand.nextRoundPlayers).hasSize(2)
     }
 
     @Test

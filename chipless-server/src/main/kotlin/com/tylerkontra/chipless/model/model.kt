@@ -131,6 +131,7 @@ data class Hand(
     val sittingOut: List<Player>,
     val rounds: List<BettingRound>,
     private val isComplete: Boolean,
+    val nextRoundPlayers: List<Player>,
 ) {
     fun playerWager(player: Player): Int =
         rounds.dropLast(1).flatMap { it.actions.filter { it.player.id == player.id } }.maxOfOrNull { it.action.chipCount } ?: 0
@@ -154,6 +155,7 @@ data class Hand(
                 hand.sittingOut.map { Player.fromStorage(it) },
                 hand.rounds.map { BettingRound.fromStorage(it) },
                 hand.isComplete(),
+                hand.nextRoundPlayers().map { Player.fromStorage(it.player) },
             )
         }
     }
@@ -229,9 +231,12 @@ data class BettingRound (
     }
 
     fun isClosed(): Boolean {
+        if (actions.count { it.action.actionType == BettingActionType.CHECK } == players.size) {
+            return true
+        }
         var lastAggressor = actions.lastOrNull { it.action.isAggression() }
         logger.debug("last aggressor: ${lastAggressor?.player?.name}")
-        if (actions.lastOrNull()?.action?.actionType == BettingActionType.CALL) {
+        if (actions.dropLastWhile { it.action == PlayerAction.Fold }.lastOrNull()?.action?.actionType == BettingActionType.CALL) {
             logger.debug("last action was check")
             if (getCurrentActionPlayer().id == lastAggressor?.player?.id) {
                 logger.debug("aggressor is next")

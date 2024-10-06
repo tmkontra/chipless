@@ -9,7 +9,7 @@ import java.util.*
 class BettingRoundTest {
 
     @Test
-    fun getCurrentActionPlayer() {
+    fun reraiseFoldAndCall() {
         val game = GameInfo(1, ShortCode("xyz"), Money(10.0.toBigDecimal()), 100)
         val alice = Player(1, ShortCode("abc"), "alice", 1, listOf(), game)
         val brian = Player(2, ShortCode("def"), "brian", 1, listOf(), game)
@@ -56,6 +56,45 @@ class BettingRoundTest {
             ),
         )
         assertThat(round.getCurrentActionPlayer()).matches { it.name == "charlie" }
-        assertThat(round.isClosed())
+        assertThat(round.isClosed()).isTrue()
+    }
+
+    @Test
+    fun allCheck() {
+        val game = GameInfo(1, ShortCode("xyz"), Money(10.0.toBigDecimal()), 100)
+        val alice = Player(1, ShortCode("abc"), "alice", 1, listOf(), game)
+        val brian = Player(2, ShortCode("def"), "brian", 1, listOf(), game)
+        val charlie = Player(3, ShortCode("ghi"), "charlie", 1, listOf(), game)
+        var round = BettingRound(
+            UUID.randomUUID(),
+            72,
+            listOf(
+                alice,
+                brian,
+                charlie
+            ),
+            listOf(
+                BettingAction(
+                    UUID.randomUUID(),
+                    1,
+                    alice,
+                    PlayerAction.Check,
+                ),
+                BettingAction(
+                    UUID.randomUUID(),
+                    2,
+                    brian,
+                    PlayerAction.Check,
+                ),
+                BettingAction(
+                    UUID.randomUUID(),
+                    3,
+                    charlie,
+                    PlayerAction.Check,
+                ),
+            ),
+        )
+        assertThat(round.getCurrentActionPlayer()).matches({ it.name == "alice" }, "next player should be alice")
+        assertThat(round.isClosed()).isTrue()
     }
 }
