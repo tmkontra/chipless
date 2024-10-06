@@ -12,6 +12,7 @@ import com.tylerkontra.chipless.storage.player.PlayerRepository
 import jakarta.persistence.EntityManager
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
+import java.util.Collections
 import kotlin.jvm.optionals.getOrNull
 
 @Service
@@ -75,6 +76,7 @@ class GameService(
         val sequence = input.sequence
         val excludePlayerIds = input.excludePlayerIds
         var (sittingOut, playing) = game.playerChips().partition { excludePlayerIds.contains(it.id) || it.availableChips <= 0 }
+        var previousHand = game.latestHand()
         var hand =  handRepository.save(
             Hand(
                 sequence,
@@ -83,8 +85,13 @@ class GameService(
                 sittingOut.map { playerRef(it.player) }.toMutableList(),
             )
         )
-        if (input.hasSeatOrder(playing.map { it.id })) {
+        if (input.hasValidSeatOrder(playing.map { it.id })) {
             playing = playing.sortedWith(input.compareBySeatOrder { it.player })
+        } else if (previousHand != null) {
+            val players = previousHand.players.filterNot { excludePlayerIds.contains(it.player.id) }.toMutableList()
+            Collections.rotate(players, -1)
+            val withNewSeatOrder = input.copy(seatOrderPlayerIds = players.map { it.player.id })
+            playing = playing.sortedWith(withNewSeatOrder.compareBySeatOrder { it.player })
         }
         val handPlayers = playing.mapIndexed { index, player ->
             HandPlayer(
@@ -193,17 +200,18 @@ class GameService(
             val buyinChips: Int
         }
 
-        data class HandInput(
+        data class HandInput private constructor(
             val excludePlayerIds: List<Long> = listOf(),
             // dealer id first
             val seatOrderPlayerIds: List<Long> = listOf(),
             val sequence: Int = 0,
         ) {
+            constructor(excludePlayerIds: List<Long> = listOf(), seatOrderPlayerIds: List<Long> = listOf()): this(excludePlayerIds, seatOrderPlayerIds, 0) {}
             private val seatOrder = compareBy<Player> { seatOrderPlayerIds.indexOf(it.id) }
 
             fun <E> compareBySeatOrder(selector: (E) -> Player) = compareBy(seatOrder, selector)
 
-            fun hasSeatOrder(playerIds: List<Long>): Boolean {
+            fun hasValidSeatOrder(playerIds: List<Long>): Boolean {
                 if (seatOrderPlayerIds.isEmpty()) return false
                 if (seatOrderPlayerIds.toSet().intersect(playerIds.toSet()).size < playerIds.size)
                     throw IllegalArgumentException("seat order must specify all players")

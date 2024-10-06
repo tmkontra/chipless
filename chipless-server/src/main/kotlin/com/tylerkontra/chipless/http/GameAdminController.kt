@@ -2,7 +2,6 @@ package com.tylerkontra.chipless.http
 
 import com.tylerkontra.chipless.http.protocol.GameAdminView
 import com.tylerkontra.chipless.http.protocol.Player
-import com.tylerkontra.chipless.model.Game
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
 import jakarta.transaction.Transactional

@@ -26,7 +26,7 @@ class GameServiceTest {
     @Autowired
     lateinit var transactionTemplate: TransactionTemplate
 
-    fun isPlayer(player: Player) = Condition({ p: Player -> p.id == player.id}, "player does not match")
+    fun isPlayer(player: Player) = Condition({ p: Player -> p.id == player.id}, "player should be ${player.name}")
 
     @Test
     fun game() {
@@ -129,9 +129,18 @@ class GameServiceTest {
         aliceHand = gameService.getPlayerHandViewByCode(alice.shortCode)
         gameService.doPlayerAction(aliceHand, PlayerAction.Fold)
 
-        val completedHand = gameService.findGameByAdminCode(game.adminCode)?.latestHand()!!
+        val completedHand = getGame().latestHand()!!
         assertThat(completedHand).matches { completedHand.isFinished }
         assertThat(completedHand.winners).hasSize(1)
         assertThat(completedHand.winners.first().player.name).isEqualTo("Charlie")
+
+        transactionTemplate.execute { status ->
+            assertThat(gameService.playerBuy(getGame(), alice).buyCount).isEqualTo(alice.buyCount + 1)
+        }
+
+        // start second hand, dealer advances
+        game = transactionTemplate.execute { status -> gameService.startHand(getGame(), GameService.Companion.HandInput()) }!!
+        assertThat(game.latestHand()?.sequence).isEqualTo(2)
+        assertThat(game.latestHand()!!.currentRound()?.getCurrentActionPlayer()).has(isPlayer(brian))
     }
 }
