@@ -1,6 +1,5 @@
 package com.tylerkontra.chipless.http.protocol
 
-import com.tylerkontra.chipless.model.ChiplessErrror
 import com.tylerkontra.chipless.model.Money
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
@@ -114,11 +113,13 @@ data class HandPlayer(
     val player: Player,
     val winnings: Int?,
     val wager: Int?,
+    val initialChips: Int,
 ) {
     companion object {
         fun fromModel(player: com.tylerkontra.chipless.model.HandPlayer): HandPlayer {
             return HandPlayer(
                 player = Player.fromModel(player.player),
+                initialChips = player.initialChips,
                 winnings = player.winnings,
                 wager = player.wager,
             )
@@ -170,12 +171,12 @@ data class PlayerAction(
     fun toModel(): com.tylerkontra.chipless.model.PlayerAction {
         return when(this.actionType) {
             BettingActionType.FOLD -> com.tylerkontra.chipless.model.PlayerAction.Fold
-            BettingActionType.CALL -> com.tylerkontra.chipless.model.PlayerAction.Call
             BettingActionType.CHECK -> com.tylerkontra.chipless.model.PlayerAction.Check
             else -> chipCount?.let {
                 when (this.actionType) {
                     BettingActionType.BET -> com.tylerkontra.chipless.model.PlayerAction.Bet(chipCount)
                     BettingActionType.RAISE -> com.tylerkontra.chipless.model.PlayerAction.Raise(chipCount)
+                    BettingActionType.CALL -> com.tylerkontra.chipless.model.PlayerAction.Call(chipCount)
                     else -> throw Exception("unreachable")
                 }
             } ?: throw IllegalArgumentException("action type requires chip count")
@@ -187,7 +188,7 @@ data class PlayerAction(
             return when (a) {
                 is com.tylerkontra.chipless.model.PlayerAction.Fold -> PlayerAction(BettingActionType.FOLD)
                 is com.tylerkontra.chipless.model.PlayerAction.Bet -> PlayerAction(BettingActionType.BET, a.amount)
-                com.tylerkontra.chipless.model.PlayerAction.Call -> PlayerAction(BettingActionType.CALL)
+                is com.tylerkontra.chipless.model.PlayerAction.Call -> PlayerAction(BettingActionType.CALL, a.difference)
                 com.tylerkontra.chipless.model.PlayerAction.Check -> PlayerAction(BettingActionType.CHECK)
                 is com.tylerkontra.chipless.model.PlayerAction.Raise -> PlayerAction(BettingActionType.RAISE, a.to)
             }

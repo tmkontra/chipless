@@ -46,6 +46,9 @@ data class Game(
     fun latestHand(): Hand? =
         hands.maxByOrNull { it.sequence }
 
+    fun playerChips(): List<PlayerChips> =
+        players.map { PlayerChips(it, it.availableChips(hands)) }
+
     companion object {
         fun fromStorage(game: com.tylerkontra.chipless.storage.game.Game): Game {
             return Game(
@@ -62,6 +65,13 @@ data class Game(
     }
 }
 
+data class PlayerChips(
+    val player: Player,
+    val availableChips: Int,
+) {
+    val id: Long = player.id
+}
+
 data class GameInfo(
     val id: Long,
     val shortCode: ShortCode,
@@ -76,8 +86,12 @@ data class Player(
     val cashouts: List<Cashout>,
     val game: GameInfo,
 ) {
+    fun availableChips(hands: List<Hand>): Int =
+        outstandingChips + hands.map { it.players.find { it.player.id == this.id } }.sumOf { it?.net ?: 0 }
+
     val totalCashout: Int = cashouts.sumOf { it.amount }
-    val outstandingChips: Int = game.buyinChips * this.buyCount - this.totalCashout
+
+    private val outstandingChips: Int = buyCount * game.buyinChips - cashouts.sumOf { it.amount }
 
     companion object {
         fun fromStorage(player: com.tylerkontra.chipless.storage.player.Player): Player {
@@ -116,6 +130,9 @@ data class Hand(
     val rounds: List<BettingRound>,
     private val isComplete: Boolean,
 ) {
+    fun playerWager(player: Player): Int =
+        rounds.flatMap { it.actions.filter { it.player.id == player.id } }.sumOf { it.action.chipCount }
+
     val isFinished: Boolean = isComplete
 
     companion object {
@@ -134,10 +151,13 @@ data class Hand(
 
 data class HandPlayer(
     val player: Player,
+    val initialChips: Int,
     val winnings: Int?,
     private val actions: List<com.tylerkontra.chipless.storage.hand.BettingAction>
 ) {
     val wager: Int = actions.sumOf { it.chipCount ?: 0 }
+
+    val net: Int = (winnings ?: 0) - wager
 
     companion object {
         fun fromStorage(
@@ -146,6 +166,7 @@ data class HandPlayer(
         ): HandPlayer {
             return HandPlayer(
                 Player.fromStorage(player.player),
+                player.initialChips,
                 player.winnings,
                 playerActions,
             )
@@ -159,9 +180,32 @@ data class BettingRound (
     val players: List<Player>,
     val actions: List<BettingAction>,
 ) {
-    // TODO: ensure players and actions are in seat-order
-    fun getCurrentActionPlayer(): Player?{
-        return players.dropWhile { p -> actions.any { act -> act.player.id == p.id } }.firstOrNull()
+    val maxWager: Int =
+        actions.groupBy { it.player }.mapValues { it.value.sumOf { it.action.chipCount } }.values.max()
+
+    fun playerWager(player: Player): Int =
+        actions.filter { it.player.id ==  player.id}.sumOf { it.action.chipCount }
+
+    private fun playerSequence(): Sequence<Player> = generateSequence { players }.flatten()
+
+    fun getCurrentActionPlayer(): Player {
+        var ix = 0
+        var folded: Set<Player> = setOf()
+        var actionIter = actions.iterator()
+        while (true) {
+            if (folded.contains(playerSequence().elementAt(ix))) {
+                ix++
+            } else if (actionIter.hasNext()) {
+                var act = actionIter.next()
+                if (playerSequence().elementAt(ix).id == act.player.id) {
+                    ix++
+                } else {
+                    throw IllegalArgumentException("next action doesn't match player")
+                }
+            } else {
+                return playerSequence().elementAt(ix)
+            }
+        }
     }
 
     fun hasBet(): Boolean {
@@ -204,6 +248,7 @@ data class BettingAction(
 sealed class PlayerAction {
     abstract val actionType: BettingActionType
     abstract fun allowed(other: PlayerAction): Boolean
+    open val chipCount: Int = 0
 
     object Check: PlayerAction() {
         override val actionType: BettingActionType = BettingActionType.CHECK
@@ -213,11 +258,7 @@ sealed class PlayerAction {
         override val actionType: BettingActionType = BettingActionType.FOLD
         override fun allowed(other: PlayerAction)= other == Fold
     }
-    object Call: PlayerAction() {
-        override val actionType: BettingActionType = BettingActionType.CALL
-        override fun allowed(other: PlayerAction) = other == Call
-    }
-    sealed class ChipAction(val chipCount: Int) : PlayerAction()
+    sealed class ChipAction(override val chipCount: Int) : PlayerAction()
     data class Bet(val amount: Int): ChipAction(amount) {
         override val actionType: BettingActionType = BettingActionType.BET
         override fun allowed(other: PlayerAction) = when (other) {
@@ -232,14 +273,22 @@ sealed class PlayerAction {
             else -> false
         }
     }
+    data class Call(val difference: Int) : ChipAction(difference) {
+        override val actionType: BettingActionType = BettingActionType.CALL
+        override fun allowed(other: PlayerAction) = when (other) {
+            is Call -> this.difference == other.difference
+            else -> false
+        }
+    }
+
     companion object {
         fun fromStorage(actionType: BettingActionType, chipCount: Int?): PlayerAction =
             when (actionType) {
                 BettingActionType.FOLD -> Fold
-                BettingActionType.CALL -> Call
                 BettingActionType.CHECK -> Check
                 BettingActionType.BET -> Bet(chipCount ?: throw ChiplessErrror.CorruptStateError("bet has no chip count"))
                 BettingActionType.RAISE -> Raise(chipCount ?: throw ChiplessErrror.CorruptStateError("raise has no chip count"))
+                BettingActionType.CALL -> Call(chipCount ?: throw ChiplessErrror.CorruptStateError("call has no chip count"))
             }
     }
 }
@@ -248,12 +297,18 @@ data class PlayerHandView(
     val player: Player,
     val hand: Hand,
 ) {
+    val handPlayer =
+        hand.players.first { it.player.id == player.id }
+
+    fun availableChips(): Int =
+        handPlayer.initialChips - hand.playerWager(player)
+
     fun isFinished(): Boolean = hand.isFinished
 
     fun isPlayerTurn(): Boolean {
         if (isFinished()) return false
         var r = mustCurrentRound()
-        var p = r.getCurrentActionPlayer() ?: return false
+        var p = r.getCurrentActionPlayer()
         return p.id == this.player.id
     }
 
@@ -269,11 +324,15 @@ data class PlayerHandView(
     fun availableActions(): List<PlayerAction> {
         var actions: MutableList<PlayerAction> = mutableListOf(PlayerAction.Fold)
         var r = mustCurrentRound()
-        if (player.outstandingChips <= 0) return actions
+        if (availableChips() <= 0) return actions
         if (r.hasBet()) {
-            actions.addAll(listOf(PlayerAction.Call, PlayerAction.Raise(player.outstandingChips)))
+            actions.addAll(listOf(
+                PlayerAction.Call(r.maxWager - r.playerWager(player)),
+                PlayerAction.Raise(availableChips())))
         } else {
-            actions.addAll(listOf(PlayerAction.Check, PlayerAction.Bet(player.outstandingChips)))
+            actions.addAll(listOf(
+                PlayerAction.Check,
+                PlayerAction.Bet(availableChips())))
         }
         return actions
     }

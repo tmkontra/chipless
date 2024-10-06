@@ -71,18 +71,23 @@ class GameService(
     }
 
     private fun createHand(game: Game, sequence: Int, excludePlayerIds: List<Long>): Hand {
-        var (sittingOut, playing) = game.players.partition { excludePlayerIds.contains(it.id) }
+        var (sittingOut, playing) = game.playerChips().partition { excludePlayerIds.contains(it.id) }
         var hand =  handRepository.save(
             Hand(
                 sequence,
                 entityManager.getReference(com.tylerkontra.chipless.storage.game.Game::class.java, game.id),
                 mutableListOf(),
-                sittingOut.map(::playerRef).toMutableList(),
+                sittingOut.map { playerRef(it.player) } .toMutableList(),
             )
         )
         hand.players.addAll(
             playing.mapIndexed { index, player ->
-                HandPlayer(playerRef(player), hand, index+1, player.outstandingChips)
+                HandPlayer(
+                    playerRef(player.player),
+                    hand,
+                    index+1,
+                    player.availableChips,
+                )
             }.toMutableList())
         val bettingRound = BettingRound(
             1,
