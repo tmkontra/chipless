@@ -2,6 +2,7 @@ package com.tylerkontra.chipless.model
 
 import com.tylerkontra.chipless.storage.hand.BettingActionType
 import com.tylerkontra.chipless.storage.hand.isAggression
+import com.tylerkontra.chipless.util.KeySet
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.security.MessageDigest
@@ -145,6 +146,8 @@ data class Hand(
     }
 
     val isFinished: Boolean = isComplete
+
+    val winners: List<HandPlayer> = players.filter { it.winnings != null }
 
     companion object {
         fun fromStorage(hand: com.tylerkontra.chipless.storage.hand.Hand): Hand {
@@ -401,55 +404,3 @@ data class PlayerHandView(
     }
 }
 
-class KeySet<K, E>(private val key: (E) -> K) : MutableSet<E> {
-    private val mutableMap: HashMap<K, E> = HashMap()
-
-    override val size: Int
-        get() = mutableMap.size
-
-    override fun clear() {
-        mutableMap.clear()
-    }
-
-    override fun addAll(elements: Collection<E>): Boolean {
-        elements.forEach(this::add)
-        return true
-    }
-
-    override fun add(element: E): Boolean {
-        mutableMap.put(key(element), element)
-        return true
-    }
-
-    override fun isEmpty(): Boolean {
-        return mutableMap.isEmpty()
-    }
-
-    override fun iterator(): MutableIterator<E> {
-        return mutableMap.values.iterator()
-    }
-
-    override fun retainAll(elements: Collection<E>): Boolean {
-        mutableMap.clear()
-        mutableMap.putAll(elements.map { Pair(key(it), it) })
-        return true
-    }
-
-    override fun removeAll(elements: Collection<E>): Boolean {
-        return true
-    }
-
-    override fun remove(element: E): Boolean {
-        return mutableMap.remove(key(element)) != null
-    }
-
-    override fun containsAll(elements: Collection<E>): Boolean {
-        return elements.all(this::contains)
-    }
-
-    override fun contains(element: E): Boolean {
-        var k = this.key(element)
-        return mutableMap.contains(k)
-    }
-
-}

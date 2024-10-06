@@ -106,35 +106,32 @@ class GameServiceTest {
         assertThat(charlieView.hand.currentRound()?.getCurrentActionPlayer()).has(isPlayer(alice))
         assertThat(charlieView.availableActions().first { it is PlayerAction.Call }).hasFieldOrPropertyWithValue("to", betAmount+40)
 
+        assertThrows<ChiplessErrror.InvalidStateError> { gameService.nextBettingRound(gameService.findGameByAdminCode(game.adminCode)!!) }
+
         aliceHand = gameService.getPlayerHandViewByCode(alice.shortCode)
         transactionTemplate.execute { status ->
             aliceView = gameService.doPlayerAction(aliceHand, PlayerAction.Call(betAmount + 40))
         }
         assertThat(aliceView.mustCurrentRound().isClosed()).isTrue()
         assertThat(aliceView.hand.nextRoundPlayers).hasSize(2)
-    }
 
-    @Test
-    fun addPlayer() {
-    }
+        // can now advance
+        transactionTemplate.execute { status -> gameService.nextBettingRound(gameService.findGameByAdminCode(game.adminCode)!!)}
 
-    @Test
-    fun playerBuy() {
-    }
+        aliceHand = gameService.getPlayerHandViewByCode(alice.shortCode)
+        assertThat(aliceHand.mustCurrentRound().getCurrentActionPlayer()).has(isPlayer(alice))
 
-    @Test
-    fun playerCashout() {
-    }
+        gameService.doPlayerAction(aliceHand, PlayerAction.Check)
 
-    @Test
-    fun startHand() {
-    }
+        charlieHand = gameService.getPlayerHandViewByCode(charlie.shortCode)
+        gameService.doPlayerAction(charlieHand, PlayerAction.Bet(10))
 
-    @Test
-    fun getPlayerHandViewByCode() {
-    }
+        aliceHand = gameService.getPlayerHandViewByCode(alice.shortCode)
+        gameService.doPlayerAction(aliceHand, PlayerAction.Fold)
 
-    @Test
-    fun doPlayerAction() {
+        val completedHand = gameService.findGameByAdminCode(game.adminCode)?.latestHand()!!
+        assertThat(completedHand).matches { completedHand.isFinished }
+        assertThat(completedHand.winners).hasSize(1)
+        assertThat(completedHand.winners.first().player.name).isEqualTo("Charlie")
     }
 }
