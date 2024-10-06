@@ -62,7 +62,9 @@ class GameServiceTest {
         assertThat(game.players.sumOf { it.buyCount }).isEqualTo(4)
         assertThat(game.hands).isEmpty()
 
-        game = transactionTemplate.execute { s -> gameService.startHand(game, listOf()) } ?: throw RuntimeException("Game not found")
+        game = transactionTemplate.execute { s ->
+            gameService.startHand(game, listOf())
+        } ?: throw RuntimeException("game did not start")
         assertThat(game.hands).hasSize(1)
         assertThat(game.latestHand()).isNotNull()
         assertThat(game.latestHand()?.players).hasSize(3)

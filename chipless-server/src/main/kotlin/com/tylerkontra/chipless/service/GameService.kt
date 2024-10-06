@@ -114,7 +114,7 @@ class GameService(
                 it.id
             )
 
-    fun startHand(g: Game, excludePlayerIds: List<Long>): Game {
+    fun startHand(g: Game, ): Game {
         var game = gameRepository.findById(g.id).get()
         g.latestHand()?.let {
             if (it.isFinished) {
@@ -179,5 +179,10 @@ class GameService(
             fun getBuyinAmount(): Money
             val buyinChips: Int
         }
+
+        data class HandInput(
+            val excludePlayerIds: List<Long>,
+            val dealerPlayerId: Long,
+        )
     }
 }
