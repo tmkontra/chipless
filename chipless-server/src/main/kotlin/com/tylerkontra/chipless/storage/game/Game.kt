@@ -15,7 +15,7 @@ class Game(
     @OneToMany(mappedBy = "game", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     @OrderBy(value = "addedAt ASC")
         var players: List<Player> = listOf(),
-    @OneToMany(mappedBy = "game", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "game", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
         var hands: MutableList<Hand> = mutableListOf(),
     var addedAt: Instant = Instant.now(),
     @Id @GeneratedValue var id: Long = 0L,

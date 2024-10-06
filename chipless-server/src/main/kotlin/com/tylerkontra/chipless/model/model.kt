@@ -1,9 +1,11 @@
 package com.tylerkontra.chipless.model
 
 import com.tylerkontra.chipless.storage.hand.BettingActionType
+import com.tylerkontra.chipless.storage.hand.isAggression
+import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 import java.security.MessageDigest
-import java.util.UUID
+import java.util.*
 
 class ShortCode(input: String) {
     val value: String = input.replace("-", "")
@@ -131,7 +133,15 @@ data class Hand(
     private val isComplete: Boolean,
 ) {
     fun playerWager(player: Player): Int =
-        rounds.flatMap { it.actions.filter { it.player.id == player.id } }.sumOf { it.action.chipCount }
+        rounds.dropLast(1).flatMap { it.actions.filter { it.player.id == player.id } }.maxOfOrNull { it.action.chipCount } ?: 0
+
+    fun roundWager(player: Player): Int =
+        currentRound()?.actions?.filter { it.player.id == player.id }?.maxOfOrNull { it.action.chipCount } ?: 0
+
+    fun currentRound(): BettingRound? {
+        if (rounds.isEmpty()) throw ChiplessErrror.InvalidStateError("no betting round")
+        return rounds.lastOrNull()
+    }
 
     val isFinished: Boolean = isComplete
 
@@ -181,16 +191,16 @@ data class BettingRound (
     val actions: List<BettingAction>,
 ) {
     val maxWager: Int =
-        actions.groupBy { it.player }.mapValues { it.value.sumOf { it.action.chipCount } }.values.max()
+        actions.maxOfOrNull { it.action.chipCount } ?: 0
 
     fun playerWager(player: Player): Int =
-        actions.filter { it.player.id ==  player.id}.sumOf { it.action.chipCount }
+        actions.filter { it.player.id ==  player.id}.maxOfOrNull { it.action.chipCount } ?: 0
 
     private fun playerSequence(): Sequence<Player> = generateSequence { players }.flatten()
 
     fun getCurrentActionPlayer(): Player {
         var ix = 0
-        var folded: Set<Player> = setOf()
+        val folded: KeySet<Long, Player> = KeySet { it.id }
         var actionIter = actions.iterator()
         while (true) {
             if (folded.contains(playerSequence().elementAt(ix))) {
@@ -199,6 +209,9 @@ data class BettingRound (
                 var act = actionIter.next()
                 if (playerSequence().elementAt(ix).id == act.player.id) {
                     ix++
+                    if (act.action.actionType == BettingActionType.FOLD) {
+                        folded.add(act.player)
+                    }
                 } else {
                     throw IllegalArgumentException("next action doesn't match player")
                 }
@@ -215,7 +228,23 @@ data class BettingRound (
         } }
     }
 
+    fun isClosed(): Boolean {
+        var lastAggressor = actions.lastOrNull { it.action.isAggression() }
+        logger.debug("last aggressor: ${lastAggressor?.player?.name}")
+        if (actions.lastOrNull()?.action?.actionType == BettingActionType.CALL) {
+            logger.debug("last action was check")
+            if (getCurrentActionPlayer().id == lastAggressor?.player?.id) {
+                logger.debug("aggressor is next")
+                return true
+            }
+        }
+        logger.debug("round not closed: ${actions.lastOrNull()?.action}; ${getCurrentActionPlayer().name}")
+        return false
+    }
+
     companion object {
+        val logger = LoggerFactory.getLogger(BettingRound::class.java)
+
         fun fromStorage(it: com.tylerkontra.chipless.storage.hand.BettingRound): BettingRound {
             return BettingRound(
                 it.id,
@@ -250,6 +279,12 @@ sealed class PlayerAction {
     abstract fun allowed(other: PlayerAction): Boolean
     open val chipCount: Int = 0
 
+    override fun toString(): String {
+        return "${actionType}" + if (chipCount > 0) "[${chipCount}]" else ""
+    }
+
+    fun isAggression(): Boolean = this.actionType.isAggression()
+
     object Check: PlayerAction() {
         override val actionType: BettingActionType = BettingActionType.CHECK
         override fun allowed(other: PlayerAction) = other == Check
@@ -273,10 +308,10 @@ sealed class PlayerAction {
             else -> false
         }
     }
-    data class Call(val difference: Int) : ChipAction(difference) {
+    data class Call(val to: Int) : ChipAction(to) {
         override val actionType: BettingActionType = BettingActionType.CALL
         override fun allowed(other: PlayerAction) = when (other) {
-            is Call -> this.difference == other.difference
+            is Call -> this.to == other.to
             else -> false
         }
     }
@@ -312,14 +347,11 @@ data class PlayerHandView(
         return p.id == this.player.id
     }
 
-    fun currentRound(): BettingRound? {
-        if (hand.rounds.isEmpty()) throw ChiplessErrror.InvalidStateError("no betting round")
-        return hand.rounds.lastOrNull()
+    fun mustCurrentRound(): BettingRound {
+        return hand.currentRound() ?: throw ChiplessErrror.InvalidStateError("no current betting round")
     }
 
-    fun mustCurrentRound(): BettingRound {
-        return currentRound() ?: throw ChiplessErrror.InvalidStateError("no current betting round")
-    }
+    val currentRoundWager: Int = mustCurrentRound().playerWager(player)
 
     fun availableActions(): List<PlayerAction> {
         var actions: MutableList<PlayerAction> = mutableListOf(PlayerAction.Fold)
@@ -327,12 +359,14 @@ data class PlayerHandView(
         if (availableChips() <= 0) return actions
         if (r.hasBet()) {
             actions.addAll(listOf(
-                PlayerAction.Call(r.maxWager - r.playerWager(player)),
-                PlayerAction.Raise(availableChips())))
+                PlayerAction.Call(r.maxWager),
+                PlayerAction.Raise(handPlayer.initialChips)
+            ))
         } else {
             actions.addAll(listOf(
                 PlayerAction.Check,
-                PlayerAction.Bet(availableChips())))
+                PlayerAction.Bet(handPlayer.initialChips))
+            )
         }
         return actions
     }
@@ -360,4 +394,57 @@ data class PlayerHandView(
         var r = mustCurrentRound()
         return r.actions.maxByOrNull { it.sequence }?.let { it.sequence + 1 } ?: 1
     }
+}
+
+class KeySet<K, E>(private val key: (E) -> K) : MutableSet<E> {
+    private val mutableMap: HashMap<K, E> = HashMap()
+
+    override val size: Int
+        get() = mutableMap.size
+
+    override fun clear() {
+        mutableMap.clear()
+    }
+
+    override fun addAll(elements: Collection<E>): Boolean {
+        elements.forEach(this::add)
+        return true
+    }
+
+    override fun add(element: E): Boolean {
+        mutableMap.put(key(element), element)
+        return true
+    }
+
+    override fun isEmpty(): Boolean {
+        return mutableMap.isEmpty()
+    }
+
+    override fun iterator(): MutableIterator<E> {
+        return mutableMap.values.iterator()
+    }
+
+    override fun retainAll(elements: Collection<E>): Boolean {
+        mutableMap.clear()
+        mutableMap.putAll(elements.map { Pair(key(it), it) })
+        return true
+    }
+
+    override fun removeAll(elements: Collection<E>): Boolean {
+        return true
+    }
+
+    override fun remove(element: E): Boolean {
+        return mutableMap.remove(key(element)) != null
+    }
+
+    override fun containsAll(elements: Collection<E>): Boolean {
+        return elements.all(this::contains)
+    }
+
+    override fun contains(element: E): Boolean {
+        var k = this.key(element)
+        return mutableMap.contains(k)
+    }
+
 }

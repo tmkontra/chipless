@@ -71,7 +71,7 @@ class GameService(
     }
 
     private fun createHand(game: Game, sequence: Int, excludePlayerIds: List<Long>): Hand {
-        var (sittingOut, playing) = game.playerChips().partition { excludePlayerIds.contains(it.id) }
+        var (sittingOut, playing) = game.playerChips().partition { excludePlayerIds.contains(it.id) || it.availableChips <= 0 }
         var hand =  handRepository.save(
             Hand(
                 sequence,
@@ -89,21 +89,23 @@ class GameService(
                     player.availableChips,
                 )
             }.toMutableList())
-        val bettingRound = BettingRound(
-            1,
-            entityManager.getReference(Hand::class.java, hand.id),
-            hand.players.map { p ->
-                entityManager.getReference(
-                    com.tylerkontra.chipless.storage.player.Player::class.java,
-                    p.player.id
-                )
-            }.toMutableList<com.tylerkontra.chipless.storage.player.Player>(), // TODO: exclude fold
-            mutableListOf(),
-        )
+        val bettingRound = newBettingRound(hand)
         hand.rounds.add(bettingRound)
         hand = handRepository.save(hand)
         return hand
     }
+
+    private fun newBettingRound(hand: Hand) = BettingRound(
+        hand.rounds.size+1,
+        entityManager.getReference(Hand::class.java, hand.id),
+        hand.players.map { p ->
+            entityManager.getReference(
+                com.tylerkontra.chipless.storage.player.Player::class.java,
+                p.player.id
+            )
+        }.toMutableList(), // TODO: exclude fold
+        mutableListOf(),
+    )
 
     private fun playerRef(it: Player): com.tylerkontra.chipless.storage.player.Player =
         entityManager
@@ -141,7 +143,7 @@ class GameService(
             throw ChiplessErrror.InvalidStateError("it is not your turn to act")
         }
         if (!hand.allowAction(action)) {
-            throw ChiplessErrror.InvalidStateError("the requested action is not allowed")
+            throw ChiplessErrror.InvalidStateError("the requested action (${action}) is not allowed: ${hand.availableActions()}")
         }
         var row = handRepository.findById(hand.hand.id).orElseThrow { ChiplessErrror.ResourceNotFoundError.ofEntity("hand") }
         var newAction = BettingAction(
@@ -161,7 +163,14 @@ class GameService(
         if (row.isComplete()) {
             startHand(Game.fromStorage(row.game), listOf())
         }
-        return PlayerHandView(hand.player, com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand))
+        var updatedHandView = com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand)
+        if (updatedHandView.currentRound()?.isClosed() == true) {
+            var newRound = newBettingRound(updatedHand)
+            updatedHand.rounds.add(newRound)
+            updatedHand = handRepository.save(updatedHand)
+            updatedHandView = com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand)
+        }
+        return PlayerHandView(hand.player, updatedHandView)
     }
 
     companion object {

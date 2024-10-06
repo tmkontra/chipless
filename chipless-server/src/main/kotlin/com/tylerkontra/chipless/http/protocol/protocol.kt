@@ -188,7 +188,7 @@ data class PlayerAction(
             return when (a) {
                 is com.tylerkontra.chipless.model.PlayerAction.Fold -> PlayerAction(BettingActionType.FOLD)
                 is com.tylerkontra.chipless.model.PlayerAction.Bet -> PlayerAction(BettingActionType.BET, a.amount)
-                is com.tylerkontra.chipless.model.PlayerAction.Call -> PlayerAction(BettingActionType.CALL, a.difference)
+                is com.tylerkontra.chipless.model.PlayerAction.Call -> PlayerAction(BettingActionType.CALL, a.to)
                 com.tylerkontra.chipless.model.PlayerAction.Check -> PlayerAction(BettingActionType.CHECK)
                 is com.tylerkontra.chipless.model.PlayerAction.Raise -> PlayerAction(BettingActionType.RAISE, a.to)
             }

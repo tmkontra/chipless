@@ -58,7 +58,7 @@ class Hand(
     UniqueConstraint(columnNames = ["hand", "sequence"])
 ])
 class HandPlayer(
-    @ManyToOne
+    @ManyToOne(cascade = [CascadeType.ALL])
     var player: Player,
     @ManyToOne
     var hand: Hand,
@@ -97,3 +97,5 @@ class BettingAction(
 enum class BettingActionType {
     CHECK, FOLD, BET, RAISE, CALL
 }
+
+fun BettingActionType.isAggression(): Boolean = this in listOf(BettingActionType.BET, BettingActionType.RAISE)
