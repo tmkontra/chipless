@@ -12,6 +12,7 @@ const confirmBuyPlayerCode = ref('')
 
 const cashoutModalPlayerCode = ref('')
 const cashoutVisible = ref(false)
+const cashoutChipCount = ref(0)
 
 const fetchGame = () => {
   apiClient
@@ -27,18 +28,29 @@ onBeforeMount(() => fetchGame())
 const doPlayerBuy = (playerCode: string) => {
   apiClient.post(`/gameAdmin/${route.params.code}/player/${playerCode}/buy`).then(() => fetchGame())
 }
+
+const submitCashout = (playerCode: string) => {
+  apiClient
+    .post(
+      `/gameAdmin/${route.params.code}/player/${playerCode}/cashout?chipCount=${cashoutChipCount.value}`
+    )
+    .then(() => (cashoutVisible.value = false))
+    .then(() => fetchGame())
+}
 </script>
 
 <template>
-  <main v-if="game" class="w-full">
+  <main v-if="game" class="w-full px-4 lg:w-1/2 lg:mx-auto lg:px-0">
     <div class="mb-4">
       <h1>{{ game.game.name }}</h1>
       <div>
         <p>Join Code: {{ game.game.shortCode }}</p>
       </div>
     </div>
-    <div class="w-1/2 mx-auto">
+    <hr class="mb-4" />
+    <div class="mb-4">
       <h3 v-if="game.game.players.length == 0">No Players Yet</h3>
+      <h3 v-else class="mb-2">Players</h3>
       <template v-for="player in game.players" :key="player.shortCode">
         <div
           class="w-full p-6 bg-white border border-gray-200 flex flex-row justify-between items-center"
@@ -49,18 +61,23 @@ const doPlayerBuy = (playerCode: string) => {
             <p>{{ player.outstandingChips }} outstanding chips</p>
           </div>
           <div class="flex flex-row gap-2">
-            <button
+            <div
               v-if="confirmBuyPlayerCode == player.shortCode"
-              class="btn-success"
-              @click="
-                () => {
-                  confirmBuyPlayerCode = ''
-                  doPlayerBuy(player.shortCode)
-                }
-              "
+              class="flex flex-row gap-2 items-center"
             >
-              Confirm Buy
-            </button>
+              <button class="px-2 h-fit border" @click="confirmBuyPlayerCode = ''">x</button>
+              <button
+                class="btn-success"
+                @click="
+                  () => {
+                    confirmBuyPlayerCode = ''
+                    doPlayerBuy(player.shortCode)
+                  }
+                "
+              >
+                Confirm Buy
+              </button>
+            </div>
             <button
               v-else
               class="btn-primary"
@@ -87,6 +104,12 @@ const doPlayerBuy = (playerCode: string) => {
         </div>
       </template>
     </div>
+    <div>
+      <h3 class="mb-2">Current Hand</h3>
+      <div
+        class="w-full p-6 bg-white border border-gray-200 flex flex-row justify-between items-center"
+      ></div>
+    </div>
   </main>
   <p-dialog
     v-model:visible="cashoutVisible"
@@ -96,13 +119,26 @@ const doPlayerBuy = (playerCode: string) => {
   >
     <div class="flex gap-4 mb-4">
       <label for="chipCount" class="font-semibold w-24">Chip Count</label>
-      <input id="chipCount" type="number" step="1" class="flex-auto" autocomplete="off" />
+      <input
+        id="chipCount"
+        type="number"
+        step="1"
+        class="flex-auto"
+        autocomplete="off"
+        v-model="cashoutChipCount"
+      />
     </div>
     <div class="flex justify-end items-center gap-4">
       <button type="button" label="Cancel" class="btn-secondary" @click="cashoutVisible = false">
         Cancel
       </button>
-      <button type="button" class="btn-primary" @click="cashoutVisible = false">Submit</button>
+      <button
+        type="button"
+        class="btn-primary"
+        @click="() => submitCashout(cashoutModalPlayerCode)"
+      >
+        Submit
+      </button>
     </div>
   </p-dialog>
 </template>

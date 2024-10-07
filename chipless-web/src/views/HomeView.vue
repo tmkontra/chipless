@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { apiClient } from '@/api/client'
-import { CreateGame, GameAdminView, PlayerAdminView } from '@/api/gen'
+import { type CreateGame, type GameAdminView, type PlayerAdminView } from '@/api/gen'
 import { reactive } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -29,6 +29,8 @@ const submitJoinGame = (e) => {
     })
     .catch((err) => alert(err))
 }
+
+const rejoinGameInput = reactive({ playerCode: '' })
 
 const submitReJoinGame = (e) => {}
 </script>
@@ -73,7 +75,7 @@ const submitReJoinGame = (e) => {}
       <h3 class="mb-2">Re-Join Game</h3>
       <div class="mb-4">
         <label>Player Code</label>
-        <input type="text" v-model="playerCode" />
+        <input type="text" v-model="rejoinGameInput.playerCode" />
       </div>
       <button class="btn-primary" type="submit">Re-Join</button>
     </form>

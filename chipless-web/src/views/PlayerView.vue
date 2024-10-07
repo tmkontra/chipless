@@ -38,17 +38,19 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <p v-if="playerError != ''">{{ playerError }}</p>
-  <main v-if="player" class="w-full">
-    <div class="mb-4">
-      <h1>{{ player?.player?.name }}</h1>
-      <div>
-        <p>Player Code: {{ player?.shortCode }}</p>
+  <main class="w-full px-4 lg:w-1/2 lg:mx-auto lg:px-0">
+    <p v-if="playerError != ''">{{ playerError }}</p>
+    <div v-if="player" class="w-full border rounded-lg p-4">
+      <div class="mb-4">
+        <h1>{{ player?.player?.name }}</h1>
+        <div>
+          <p>Player Code: {{ player?.shortCode }}</p>
+        </div>
       </div>
-    </div>
-    <p v-if="handError">Waiting For Hand To Start</p>
-    <div v-if="hand">
-      <p>Hand</p>
+      <p v-if="handError">Waiting For Hand To Start</p>
+      <div v-if="hand">
+        <p>Hand</p>
+      </div>
     </div>
   </main>
 </template>
