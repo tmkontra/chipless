@@ -11,6 +11,7 @@ const game: Ref<GameAdminView | null> = ref(null)
 const confirmBuyPlayerCode = ref('')
 
 const cashoutModalPlayerCode = ref('')
+const cashoutVisible = ref(false)
 
 const fetchGame = () => {
   apiClient
@@ -71,40 +72,39 @@ const doPlayerBuy = (playerCode: string) => {
             >
               + Buy
             </button>
-            <button class="btn-primary" @click="cashoutModalPlayerCode = player.shortCode">
+            <button
+              class="btn-primary"
+              @click="
+                () => {
+                  cashoutModalPlayerCode = player.shortCode
+                  cashoutVisible = true
+                }
+              "
+            >
               Cashout
             </button>
           </div>
         </div>
       </template>
     </div>
-
-    <v-modal
-      v-if="cashoutModalPlayerCode != ''"
-      title="Confirm Action"
-      width="sm"
-      v-on:close="cashoutModalPlayerCode = ''"
-    >
-      <p class="text-gray-800">
-        Record cashout for
-        {{ game.players.find((p) => p.shortCode === cashoutModalPlayerCode).name }}
-      </p>
-
-      <div class="text-right mt-4">
-        <button
-          @click="showModal = false"
-          class="px-4 py-2 text-sm text-gray-600 focus:outline-none hover:underline"
-        >
-          Cancel
-        </button>
-        <button
-          class="mr-2 px-4 py-2 text-sm rounded text-white bg-red-500 focus:outline-none hover:bg-red-400"
-        >
-          Delete
-        </button>
-      </div>
-    </v-modal>
   </main>
+  <p-dialog
+    v-model:visible="cashoutVisible"
+    modal
+    header="Confirm Cashout"
+    :style="{ width: '25rem' }"
+  >
+    <div class="flex gap-4 mb-4">
+      <label for="chipCount" class="font-semibold w-24">Chip Count</label>
+      <input id="chipCount" type="number" step="1" class="flex-auto" autocomplete="off" />
+    </div>
+    <div class="flex justify-end items-center gap-4">
+      <button type="button" label="Cancel" class="btn-secondary" @click="cashoutVisible = false">
+        Cancel
+      </button>
+      <button type="button" class="btn-primary" @click="cashoutVisible = false">Submit</button>
+    </div>
+  </p-dialog>
 </template>
 
 <style></style>
