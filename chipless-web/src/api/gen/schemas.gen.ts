@@ -117,7 +117,7 @@ export const PlayerSchema = {
 } as const;
 
 export const PlayerAdminViewSchema = {
-    required: ['cashouts', 'player', 'shortCode'],
+    required: ['cashouts', 'outstandingChips', 'player', 'shortCode'],
     type: 'object',
     properties: {
         player: {
@@ -131,6 +131,10 @@ export const PlayerAdminViewSchema = {
             items: {
                 '$ref': '#/components/schemas/Cashout'
             }
+        },
+        outstandingChips: {
+            type: 'integer',
+            format: 'int32'
         }
     }
 } as const;

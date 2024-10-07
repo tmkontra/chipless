@@ -94,7 +94,7 @@ data class Player(
 
     val totalCashout: Int = cashouts.sumOf { it.amount }
 
-    private val outstandingChips: Int = buyCount * game.buyinChips - cashouts.sumOf { it.amount }
+    val outstandingChips: Int = buyCount * game.buyinChips - cashouts.sumOf { it.amount }
 
     companion object {
         fun fromStorage(player: com.tylerkontra.chipless.storage.player.Player): Player {

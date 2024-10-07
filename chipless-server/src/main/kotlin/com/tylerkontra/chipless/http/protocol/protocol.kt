@@ -58,14 +58,16 @@ data class Cashout(val amount: Int) {
 data class PlayerAdminView(
     val player: Player,
     val shortCode: String,
-    val cashouts: List<Cashout>
+    val cashouts: List<Cashout>,
+    val outstandingChips: Int,
 ) {
     companion object {
         fun fromModel(player: com.tylerkontra.chipless.model.Player): PlayerAdminView {
             return PlayerAdminView(
                 Player.fromModel(player),
                 player.shortCode.prettyPrint(),
-                player.cashouts.map { Cashout.fromModel(it) }
+                player.cashouts.map { Cashout.fromModel(it) },
+                player.outstandingChips,
             )
         }
     }
@@ -76,6 +78,7 @@ data class GameAdminView(
     val adminCode: String,
     val players: List<PlayerAdminView>,
     val hands: List<Hand>,
+
 ) {
     companion object {
         fun fromModel(game: com.tylerkontra.chipless.model.Game) =
