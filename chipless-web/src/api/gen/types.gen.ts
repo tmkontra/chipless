@@ -23,6 +23,7 @@ export type Hand = {
     sequence: number;
     players: Array<HandPlayer>;
     rounds: Array<BettingRound>;
+    isFinished: boolean;
 };
 
 export type HandPlayer = {
@@ -71,6 +72,7 @@ export type GameAdminView = {
     adminCode: string;
     players: Array<PlayerAdminView>;
     hands: Array<Hand>;
+    currentHand?: Hand;
 };
 
 export type PlayerActionData = {

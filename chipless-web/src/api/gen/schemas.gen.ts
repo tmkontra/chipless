@@ -54,7 +54,7 @@ export const CashoutSchema = {
 } as const;
 
 export const HandSchema = {
-    required: ['id', 'players', 'rounds', 'sequence'],
+    required: ['id', 'isFinished', 'players', 'rounds', 'sequence'],
     type: 'object',
     properties: {
         id: {
@@ -76,6 +76,9 @@ export const HandSchema = {
             items: {
                 '$ref': '#/components/schemas/BettingRound'
             }
+        },
+        isFinished: {
+            type: 'boolean'
         }
     }
 } as const;
@@ -229,6 +232,9 @@ export const GameAdminViewSchema = {
             items: {
                 '$ref': '#/components/schemas/Hand'
             }
+        },
+        currentHand: {
+            '$ref': '#/components/schemas/Hand'
         }
     }
 } as const;

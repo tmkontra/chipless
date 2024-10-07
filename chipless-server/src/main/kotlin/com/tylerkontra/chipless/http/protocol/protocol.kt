@@ -78,7 +78,7 @@ data class GameAdminView(
     val adminCode: String,
     val players: List<PlayerAdminView>,
     val hands: List<Hand>,
-
+    val currentHand: Hand?,
 ) {
     companion object {
         fun fromModel(game: com.tylerkontra.chipless.model.Game) =
@@ -86,7 +86,8 @@ data class GameAdminView(
                 Game.fromModel(game),
                 game.adminCode.prettyPrint(),
                 game.players.map { PlayerAdminView.fromModel(it) },
-                game.hands.map { Hand.fromModel(it) }
+                game.hands.map { Hand.fromModel(it) },
+                game.latestHand()?.let { Hand.fromModel(it) }
             )
     }
 }
@@ -96,6 +97,7 @@ data class Hand(
     val sequence: Int,
     val players: List<HandPlayer>,
     val rounds: List<BettingRound>,
+    val isFinished: Boolean,
 ) {
     companion object {
         fun fromModel(hand: com.tylerkontra.chipless.model.Hand) =
@@ -103,7 +105,9 @@ data class Hand(
                 hand.id,
                 hand.sequence,
                 hand.players.map(HandPlayer::fromModel),
-                hand.rounds.map { BettingRound.fromModel(it) })
+                hand.rounds.map { BettingRound.fromModel(it) },
+                hand.isFinished
+            )
     }
 }
 
