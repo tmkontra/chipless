@@ -1,10 +1,7 @@
 package com.tylerkontra.chipless.service
 
 import com.tylerkontra.chipless.http.protocol.CreateGame
-import com.tylerkontra.chipless.model.ChiplessErrror
-import com.tylerkontra.chipless.model.Player
-import com.tylerkontra.chipless.model.PlayerAction
-import com.tylerkontra.chipless.model.PlayerHandView
+import com.tylerkontra.chipless.model.*
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Condition
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -74,24 +71,24 @@ class GameServiceTest {
         val firstHand = game.latestHand() ?: throw RuntimeException("Hand not found")
         var aliceHand = PlayerHandView(game.players.first(), firstHand)
         var brianHand = PlayerHandView(game.players.elementAt(1), firstHand)
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.doPlayerAction(brianHand, PlayerAction.Check) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.doPlayerAction(brianHand, PlayerAction.Check) }
 
         val betAmount = game.buyinChips / 4
         var aliceView = gameService.doPlayerAction(aliceHand, PlayerAction.Bet(betAmount))
 
         brianHand = gameService.getPlayerHandViewByCode(brian.shortCode)
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.doPlayerAction(brianHand, PlayerAction.Check) }
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.doPlayerAction(brianHand, PlayerAction.Bet(betAmount)) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.doPlayerAction(brianHand, PlayerAction.Check) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.doPlayerAction(brianHand, PlayerAction.Bet(betAmount)) }
         assertDoesNotThrow { gameService.doPlayerAction(brianHand, PlayerAction.Call(betAmount)) }
 
         var charlieHand = gameService.getPlayerHandViewByCode(charlie.shortCode)
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.doPlayerAction(charlieHand, PlayerAction.Check) }
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.doPlayerAction(charlieHand, PlayerAction.Bet(betAmount)) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.doPlayerAction(charlieHand, PlayerAction.Check) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.doPlayerAction(charlieHand, PlayerAction.Bet(betAmount)) }
         assertDoesNotThrow { gameService.doPlayerAction(charlieHand, PlayerAction.Raise(betAmount + 10)) }
 
         aliceHand = gameService.getPlayerHandViewByCode(alice.shortCode)
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.doPlayerAction(aliceHand, PlayerAction.Check) }
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.doPlayerAction(aliceHand, PlayerAction.Bet(betAmount)) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.doPlayerAction(aliceHand, PlayerAction.Check) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.doPlayerAction(aliceHand, PlayerAction.Bet(betAmount)) }
         // re-raise
         assertDoesNotThrow { gameService.doPlayerAction(aliceHand, PlayerAction.Raise(betAmount + 20)) }
 
@@ -106,7 +103,7 @@ class GameServiceTest {
         assertThat(charlieView.hand.currentRound()?.getCurrentActionPlayer()).has(isPlayer(alice))
         assertThat(charlieView.availableActions().first { it is PlayerAction.Call }).hasFieldOrPropertyWithValue("to", betAmount+40)
 
-        assertThrows<ChiplessErrror.InvalidStateError> { gameService.nextBettingRound(gameService.findGameByAdminCode(game.adminCode)!!) }
+        assertThrows<ChiplessError.InvalidStateError> { gameService.nextBettingRound(gameService.findGameByAdminCode(game.adminCode)!!) }
 
         aliceHand = gameService.getPlayerHandViewByCode(alice.shortCode)
         transactionTemplate.execute { status ->

@@ -4,8 +4,6 @@ import com.tylerkontra.chipless.model.Money
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
 import com.tylerkontra.chipless.storage.hand.BettingActionType
-import org.springframework.core.convert.converter.Converter
-import org.springframework.stereotype.Component
 import java.math.BigDecimal
 import java.util.*
 
@@ -14,7 +12,9 @@ data class CreateGame(
     val buyinAmount: BigDecimal,
     override val buyinChips: Int,
 ): GameService.Companion.CreateGame {
-    override fun getBuyinAmount(): Money = Money(buyinAmount)
+    override fun buyinMoney(): Money {
+        return Money(buyinAmount)
+    }
 }
 
 data class Game(
@@ -73,6 +73,7 @@ data class PlayerAdminView(
 
 data class GameAdminView(
     val game: Game,
+    val adminCode: String,
     val players: List<PlayerAdminView>,
     val hands: List<Hand>,
 ) {
@@ -80,16 +81,10 @@ data class GameAdminView(
         fun fromModel(game: com.tylerkontra.chipless.model.Game) =
             GameAdminView(
                 Game.fromModel(game),
+                game.adminCode.prettyPrint(),
                 game.players.map { PlayerAdminView.fromModel(it) },
                 game.hands.map { Hand.fromModel(it) }
             )
-    }
-}
-
-@Component
-class ShortCodeDeserializer : Converter<String, ShortCode> {
-    override fun convert(source: String): ShortCode {
-        return ShortCode(source)
     }
 }
 
@@ -147,7 +142,7 @@ data class BettingRound(
 
 data class PlayerHandView(
     val hand: Hand,
-    val player: Player,
+    val player: PlayerAdminView,
     val isTurn: Boolean,
     val availableActions: List<PlayerAction?>
 ) {
@@ -155,7 +150,7 @@ data class PlayerHandView(
         fun fromModel(v: com.tylerkontra.chipless.model.PlayerHandView): PlayerHandView {
             return PlayerHandView(
                 hand = Hand.fromModel(v.hand),
-                player = Player.fromModel(v.player),
+                player = PlayerAdminView.fromModel(v.player),
                 isTurn = v.isPlayerTurn(),
                 availableActions = v.availableActions().map(PlayerAction::fromModel),
             )

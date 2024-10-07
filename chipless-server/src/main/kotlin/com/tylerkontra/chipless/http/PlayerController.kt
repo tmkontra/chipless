@@ -1,27 +1,16 @@
 package com.tylerkontra.chipless.http
 
-import com.tylerkontra.chipless.http.protocol.Player
 import com.tylerkontra.chipless.http.protocol.PlayerAction
+import com.tylerkontra.chipless.http.protocol.PlayerAdminView
 import com.tylerkontra.chipless.http.protocol.PlayerHandView
-import com.tylerkontra.chipless.model.ChiplessErrror
+import com.tylerkontra.chipless.model.ChiplessError
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
-import jakarta.servlet.http.HttpServletResponse
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
-import org.springframework.http.HttpStatusCode
 import org.springframework.http.ResponseEntity
-import org.springframework.util.MultiValueMap
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.RequestBody
-import org.springframework.web.bind.annotation.RequestHeader
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.client.HttpStatusCodeException
+import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
-import org.springframework.web.servlet.function.ServerRequest.Headers
 
 @RestController
 @RequestMapping("/player/{playerCode}")
@@ -29,9 +18,9 @@ class PlayerController(
     private val gameService: GameService
 ) {
     @GetMapping("")
-    fun viewPlayer(@PathVariable playerCode: ShortCode): Player {
-        val p = gameService.findPlayerByCode(playerCode) ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("player")
-        return Player.fromModel(p)
+    fun viewPlayer(@PathVariable playerCode: ShortCode): PlayerAdminView {
+        val p = gameService.findPlayerByCode(playerCode) ?: throw ChiplessError.ResourceNotFoundError.ofEntity("player")
+        return PlayerAdminView.fromModel(p)
     }
 
     @GetMapping("/hand")

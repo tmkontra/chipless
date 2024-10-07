@@ -1,11 +1,17 @@
 package com.tylerkontra.chipless.model
 
-sealed class ChiplessErrror(message: String) : Exception(message) {
-    class InvalidStateError(message: String) : ChiplessErrror(message)
-    class ResourceNotFoundError(message: String) : ChiplessErrror(message) {
+sealed class ChiplessError(message: String, val errorCode: ErrorCode? = null) : Exception(message) {
+    class InvalidStateError(message: String, errorCode: ErrorCode? = null) : ChiplessError(message, errorCode) {
+
+    }
+    class ResourceNotFoundError(message: String) : ChiplessError(message) {
         companion object {
             fun ofEntity(name: String) = ResourceNotFoundError("${name} not found")
         }
     }
-    class CorruptStateError(message: String) : ChiplessErrror(message)
+    class CorruptStateError(message: String) : ChiplessError(message)
+}
+
+sealed class ErrorCode(val value: String) {
+    object NoCurrentHand : ErrorCode("E148")
 }

@@ -141,7 +141,7 @@ data class Hand(
         currentRound()?.actions?.filter { it.player.id == player.id }?.maxOfOrNull { it.action.chipCount } ?: 0
 
     fun currentRound(): BettingRound? {
-        if (rounds.isEmpty()) throw ChiplessErrror.InvalidStateError("no betting round")
+        if (rounds.isEmpty()) throw ChiplessError.InvalidStateError("no betting round")
         return rounds.lastOrNull()
     }
 
@@ -329,9 +329,9 @@ sealed class PlayerAction {
             when (actionType) {
                 BettingActionType.FOLD -> Fold
                 BettingActionType.CHECK -> Check
-                BettingActionType.BET -> Bet(chipCount ?: throw ChiplessErrror.CorruptStateError("bet has no chip count"))
-                BettingActionType.RAISE -> Raise(chipCount ?: throw ChiplessErrror.CorruptStateError("raise has no chip count"))
-                BettingActionType.CALL -> Call(chipCount ?: throw ChiplessErrror.CorruptStateError("call has no chip count"))
+                BettingActionType.BET -> Bet(chipCount ?: throw ChiplessError.CorruptStateError("bet has no chip count"))
+                BettingActionType.RAISE -> Raise(chipCount ?: throw ChiplessError.CorruptStateError("raise has no chip count"))
+                BettingActionType.CALL -> Call(chipCount ?: throw ChiplessError.CorruptStateError("call has no chip count"))
             }
     }
 }
@@ -356,7 +356,7 @@ data class PlayerHandView(
     }
 
     fun mustCurrentRound(): BettingRound {
-        return hand.currentRound() ?: throw ChiplessErrror.InvalidStateError("no current betting round")
+        return hand.currentRound() ?: throw ChiplessError.InvalidStateError("no current betting round")
     }
 
     val currentRoundWager: Int = mustCurrentRound().playerWager(player)

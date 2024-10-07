@@ -26,7 +26,7 @@ class GameService(
     fun createGame(game: CreateGame): Game {
         var g = com.tylerkontra.chipless.storage.game.Game(
             game.name,
-            game.getBuyinAmount().toCents(),
+            game.buyinMoney().toCents(),
             game.buyinChips,
         )
         var created = gameRepository.save(g)
@@ -134,7 +134,7 @@ class GameService(
                 val h = createHand(g, input.copy(sequence = it.sequence + 1))
                 game.hands.add(h)
             } else {
-                throw ChiplessErrror.InvalidStateError("cannot start hand, previous hand not finished")
+                throw ChiplessError.InvalidStateError("cannot start hand, previous hand not finished")
             }
         } ?: apply {
             val h = createHand(g, input.copy(sequence = 1))
@@ -145,20 +145,20 @@ class GameService(
     }
 
     fun getPlayerHandViewByCode(playerCode: ShortCode): PlayerHandView {
-        var p = findPlayerByCode(playerCode) ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("player")
-        val g = findGameByCode(p.game.shortCode) ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("game")
-        val hand = g.latestHand() ?: throw ChiplessErrror.InvalidStateError("game has no current hand")
+        var p = findPlayerByCode(playerCode) ?: throw ChiplessError.ResourceNotFoundError.ofEntity("player")
+        val g = findGameByCode(p.game.shortCode) ?: throw ChiplessError.ResourceNotFoundError.ofEntity("game")
+        val hand = g.latestHand() ?: throw ChiplessError.InvalidStateError("game has no current hand", ErrorCode.NoCurrentHand)
         return PlayerHandView(p, hand)
     }
 
     fun doPlayerAction(hand: PlayerHandView, action: PlayerAction): PlayerHandView {
         if (!hand.isPlayerTurn()) {
-            throw ChiplessErrror.InvalidStateError("it is not your turn to act")
+            throw ChiplessError.InvalidStateError("it is not your turn to act")
         }
         if (!hand.allowAction(action)) {
-            throw ChiplessErrror.InvalidStateError("the requested action (${action}) is not allowed: ${hand.availableActions()}")
+            throw ChiplessError.InvalidStateError("the requested action (${action}) is not allowed: ${hand.availableActions()}")
         }
-        var handRecord = handRepository.findById(hand.hand.id).orElseThrow { ChiplessErrror.ResourceNotFoundError.ofEntity("hand") }
+        var handRecord = handRepository.findById(hand.hand.id).orElseThrow { ChiplessError.ResourceNotFoundError.ofEntity("hand") }
         var newAction = BettingAction(
             hand.nextActionSequence(),
             playerRef(hand.player),
@@ -179,16 +179,16 @@ class GameService(
 
     fun nextBettingRound(game: Game): com.tylerkontra.chipless.model.Hand {
         game.latestHand()?.let { hand ->
-            var hand = handRepository.findById(hand.id).getOrNull() ?: throw ChiplessErrror.ResourceNotFoundError.ofEntity("hand")
+            var hand = handRepository.findById(hand.id).getOrNull() ?: throw ChiplessError.ResourceNotFoundError.ofEntity("hand")
             if (com.tylerkontra.chipless.model.Hand.fromStorage(hand).currentRound()?.isClosed() != true) {
-                throw ChiplessErrror.InvalidStateError("current betting round is not closed")
+                throw ChiplessError.InvalidStateError("current betting round is not closed")
             }
             var newRound = newBettingRound(hand)
             hand.rounds.add(newRound)
             val updatedHand = handRepository.save(hand)
             val updatedHandView = com.tylerkontra.chipless.model.Hand.fromStorage(updatedHand)
             return updatedHandView
-        } ?: throw ChiplessErrror.InvalidStateError("game has no current hand")
+        } ?: throw ChiplessError.InvalidStateError("game has no current hand")
     }
 
     companion object {
@@ -196,7 +196,7 @@ class GameService(
 
         interface CreateGame {
             val name: String
-            fun getBuyinAmount(): Money
+            fun buyinMoney(): Money
             val buyinChips: Int
         }
 
