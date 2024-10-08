@@ -38,7 +38,6 @@ watch(
 
 <template>
   <div class="mb-2">
-    <h3>Start Hand</h3>
     <p>
       Select the players that are participating in the hand, and confirm the betting order. The
       player list begins with the player seated left of the dealer.

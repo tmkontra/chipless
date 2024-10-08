@@ -128,16 +128,15 @@ const beginNextRound = () => {
         </div>
       </template>
     </div>
-    <div class="">
-      <h3 class="mb-2">Current Hand</h3>
+    <div class="mb-4" v-if="game.currentHand">
+      <h3 class="mb-2">
+        <span v-if="game.currentHand?.isFinished">Previous Hand</span>
+        <span v-else>Current Hand</span>
+      </h3>
       <div
         class="w-full p-6 bg-white border border-gray-200 flex flex-row justify-between items-center"
       >
-        <div v-if="game.currentHand?.isFinished">
-          <p>previous hand</p>
-          <button class="btn-primary" @click="startHand([])">Start Next Hand</button>
-        </div>
-        <div v-else-if="game.currentHand" class="w-full flex flex-col justify-center items-center">
+        <div class="w-full flex flex-col justify-center items-center">
           <TableView :hand.sync="game.currentHand" />
           <div class="flex flex-row">
             <button
@@ -149,7 +148,14 @@ const beginNextRound = () => {
             </button>
           </div>
         </div>
-        <div v-else="game">
+      </div>
+    </div>
+    <div v-if="!game.currentHand || game.currentHand?.isFinished">
+      <h3 class="mb-2">Start Hand</h3>
+      <div
+        class="w-full p-6 bg-white border border-gray-200 flex flex-row justify-between items-center"
+      >
+        <div class="w-full flex flex-col justify-center items-center">
           <AdminStartHandView
             :game="game"
             :sitting-out="game.newPlayers"
