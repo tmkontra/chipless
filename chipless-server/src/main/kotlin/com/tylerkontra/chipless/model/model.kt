@@ -194,6 +194,8 @@ data class HandPlayer(
 
     val net: Int = (winnings ?: 0) - wager
 
+    val lastAction: PlayerAction? = actions.lastOrNull()?.let { PlayerAction.fromStorage(it.actionType, it.chipCount) }
+
     companion object {
         fun fromStorage(
             player: com.tylerkontra.chipless.storage.hand.HandPlayer,

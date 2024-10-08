@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import type { HandPlayer, PlayerAdminView } from '@/api/gen'
+import { actionTypeName } from '@/api/extension'
+import type { HandPlayer, PlayerAction, PlayerAdminView } from '@/api/gen'
 import { onMounted, ref } from 'vue'
 
 const { player, radius, index, playerCount, parentId, isTurn } = defineProps<{
@@ -9,6 +10,7 @@ const { player, radius, index, playerCount, parentId, isTurn } = defineProps<{
   playerCount: number
   parentId: string
   isTurn: boolean
+  lastAction?: PlayerAction
 }>()
 
 const top = ref('')
@@ -38,7 +40,10 @@ onMounted(() => calc())
   <div class="player flex flex-col justify-center items-center" :class="{ active: isTurn }">
     <p>{{ player.player.name }}</p>
     <p v-if="player.isDealer">D</p>
-    <p>{{ player.wager }}</p>
+    <p>
+      <span v-if="lastAction">{{ actionTypeName(lastAction) }}</span
+      >{{ ' ' }} {{ player.wager }}
+    </p>
   </div>
 </template>
 

@@ -34,6 +34,7 @@ export type HandPlayer = {
   wager?: number
   initialChips: number
   isDealer: boolean
+  lastAction?: PlayerAction
 }
 
 export type Player = {

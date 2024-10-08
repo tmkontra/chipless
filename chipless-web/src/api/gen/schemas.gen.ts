@@ -110,6 +110,9 @@ export const HandPlayerSchema = {
         },
         isDealer: {
             type: 'boolean'
+        },
+        lastAction: {
+            '$ref': '#/components/schemas/PlayerAction'
         }
     }
 } as const;

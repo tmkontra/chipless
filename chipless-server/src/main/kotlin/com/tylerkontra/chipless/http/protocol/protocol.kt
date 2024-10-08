@@ -1,7 +1,6 @@
 package com.tylerkontra.chipless.http.protocol
 
 import com.tylerkontra.chipless.model.Money
-import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
 import com.tylerkontra.chipless.storage.hand.BettingActionType
 import java.math.BigDecimal
@@ -131,6 +130,7 @@ data class HandPlayer(
     val wager: Int?,
     val initialChips: Int,
     val isDealer: Boolean,
+    val lastAction: PlayerAction?,
 ) {
     companion object {
         fun fromModel(player: com.tylerkontra.chipless.model.HandPlayer): HandPlayer {
@@ -140,6 +140,7 @@ data class HandPlayer(
                 winnings = player.winnings,
                 wager = player.wager,
                 isDealer = player.isDealer,
+                lastAction = player.lastAction?.let(PlayerAction::fromModel),
             )
         }
     }
@@ -151,6 +152,7 @@ data class BettingRound(
     val players: List<Player>,
     val currentPlayer: Player,
     val actions: List<PlayerAction>,
+    val isClosed: Boolean,
 ) {
     companion object {
         fun fromModel(it: com.tylerkontra.chipless.model.BettingRound): BettingRound {
@@ -159,7 +161,8 @@ data class BettingRound(
                 it.sequence,
                 it.players.map { Player.fromModel(it) },
                 it.getCurrentActionPlayer().let(Player::fromModel),
-                it.actions.map { PlayerAction.fromModel(it.action) }
+                it.actions.map { PlayerAction.fromModel(it.action) },
+                it.isClosed(),
             )
         }
     }

@@ -23,6 +23,7 @@ const tableSize = tableRadius + 'px'
           :playerCount="hand.players.length"
           :parent-id="'poker-table'"
           :is-turn="hand.currentRound?.currentPlayer.id == player.player.id"
+          :last-action="player.lastAction"
         />
       </div>
     </div>
