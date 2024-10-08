@@ -57,6 +57,10 @@ const startHand = (seatOrderPlayerIds: Array<number>) => {
       game.value = gameView
     })
 }
+
+const beginNextRound = () => {
+  apiClient.post(`/gameAdmin/${route.params.code}/hand/advance`).then(() => fetchGame())
+}
 </script>
 
 <template>
@@ -133,7 +137,18 @@ const startHand = (seatOrderPlayerIds: Array<number>) => {
           <p>previous hand</p>
           <button class="btn-primary" @click="startHand([])">Start Next Hand</button>
         </div>
-        <TableView v-else-if="game.currentHand" :hand.sync="game.currentHand" />
+        <div v-else-if="game.currentHand" class="w-full flex flex-col justify-center items-center">
+          <TableView :hand.sync="game.currentHand" />
+          <div class="flex flex-row">
+            <button
+              v-if="game.currentHand.currentRound.isClosed"
+              class="btn-primary"
+              @click="beginNextRound()"
+            >
+              Begin Next Round
+            </button>
+          </div>
+        </div>
         <div v-else="game">
           <AdminStartHandView
             :game="game"

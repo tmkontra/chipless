@@ -16,7 +16,7 @@ export const PlayerActionSchema = {
 } as const;
 
 export const BettingRoundSchema = {
-    required: ['actions', 'currentPlayer', 'id', 'players', 'sequence'],
+    required: ['actions', 'currentPlayer', 'id', 'isClosed', 'players', 'sequence'],
     type: 'object',
     properties: {
         id: {
@@ -41,6 +41,9 @@ export const BettingRoundSchema = {
             items: {
                 '$ref': '#/components/schemas/PlayerAction'
             }
+        },
+        isClosed: {
+            type: 'boolean'
         }
     }
 } as const;
