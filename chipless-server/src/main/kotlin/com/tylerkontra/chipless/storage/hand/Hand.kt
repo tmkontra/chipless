@@ -3,6 +3,8 @@ package com.tylerkontra.chipless.storage.hand
 import com.tylerkontra.chipless.storage.game.Game
 import com.tylerkontra.chipless.storage.player.Player
 import jakarta.persistence.*
+import org.hibernate.annotations.OnDelete
+import org.hibernate.annotations.OnDeleteAction
 import java.util.*
 
 @Entity
@@ -14,11 +16,13 @@ class Hand(
     @ManyToOne(fetch = FetchType.EAGER, cascade = [CascadeType.ALL])
     var game: Game,
     @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     @OrderBy(value = "sequence ASC")
     var players: MutableList<HandPlayer> = mutableListOf(),
     @ManyToMany(cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
     var sittingOut: MutableList<Player> = mutableListOf(),
     @OneToMany(mappedBy = "hand", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     @OrderBy("sequence ASC")
     var rounds: MutableList<BettingRound> = mutableListOf(),
     @Id var id: UUID = UUID.randomUUID()
@@ -66,7 +70,9 @@ class HandPlayer(
     var initialChips: Int,
     var winnings: Int? = null,
     @Id var id: UUID = UUID.randomUUID()
-)
+) {
+    fun isDealer(): Boolean = sequence == hand.players.size
+}
 
 @Entity
 class BettingRound(

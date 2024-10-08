@@ -16,7 +16,7 @@ export const PlayerActionSchema = {
 } as const;
 
 export const BettingRoundSchema = {
-    required: ['actions', 'id', 'players', 'sequence'],
+    required: ['actions', 'currentPlayer', 'id', 'players', 'sequence'],
     type: 'object',
     properties: {
         id: {
@@ -32,6 +32,9 @@ export const BettingRoundSchema = {
             items: {
                 '$ref': '#/components/schemas/Player'
             }
+        },
+        currentPlayer: {
+            '$ref': '#/components/schemas/Player'
         },
         actions: {
             type: 'array',
@@ -54,7 +57,7 @@ export const CashoutSchema = {
 } as const;
 
 export const HandSchema = {
-    required: ['id', 'isFinished', 'players', 'rounds', 'sequence'],
+    required: ['currentRound', 'id', 'isFinished', 'players', 'rounds', 'sequence'],
     type: 'object',
     properties: {
         id: {
@@ -77,6 +80,9 @@ export const HandSchema = {
                 '$ref': '#/components/schemas/BettingRound'
             }
         },
+        currentRound: {
+            '$ref': '#/components/schemas/BettingRound'
+        },
         isFinished: {
             type: 'boolean'
         }
@@ -84,7 +90,7 @@ export const HandSchema = {
 } as const;
 
 export const HandPlayerSchema = {
-    required: ['initialChips', 'player'],
+    required: ['initialChips', 'isDealer', 'player'],
     type: 'object',
     properties: {
         player: {
@@ -101,14 +107,21 @@ export const HandPlayerSchema = {
         initialChips: {
             type: 'integer',
             format: 'int32'
+        },
+        isDealer: {
+            type: 'boolean'
         }
     }
 } as const;
 
 export const PlayerSchema = {
-    required: ['buyCount', 'name'],
+    required: ['buyCount', 'id', 'name'],
     type: 'object',
     properties: {
+        id: {
+            type: 'integer',
+            format: 'int64'
+        },
         name: {
             type: 'string'
         },
@@ -143,7 +156,7 @@ export const PlayerAdminViewSchema = {
 } as const;
 
 export const PlayerHandViewSchema = {
-    required: ['availableActions', 'hand', 'isTurn', 'player'],
+    required: ['availableActions', 'availableChips', 'hand', 'isTurn', 'player'],
     type: 'object',
     properties: {
         hand: {
@@ -160,6 +173,10 @@ export const PlayerHandViewSchema = {
             items: {
                 '$ref': '#/components/schemas/PlayerAction'
             }
+        },
+        availableChips: {
+            type: 'integer',
+            format: 'int32'
         }
     }
 } as const;
@@ -212,7 +229,7 @@ export const GameSchema = {
 } as const;
 
 export const GameAdminViewSchema = {
-    required: ['adminCode', 'game', 'hands', 'players'],
+    required: ['adminCode', 'game', 'hands', 'newPlayers', 'nextHandOrder', 'players', 'playersBankrupt'],
     type: 'object',
     properties: {
         game: {
@@ -235,6 +252,24 @@ export const GameAdminViewSchema = {
         },
         currentHand: {
             '$ref': '#/components/schemas/Hand'
+        },
+        nextHandOrder: {
+            type: 'array',
+            items: {
+                '$ref': '#/components/schemas/PlayerAdminView'
+            }
+        },
+        playersBankrupt: {
+            type: 'array',
+            items: {
+                '$ref': '#/components/schemas/PlayerAdminView'
+            }
+        },
+        newPlayers: {
+            type: 'array',
+            items: {
+                '$ref': '#/components/schemas/PlayerAdminView'
+            }
         }
     }
 } as const;

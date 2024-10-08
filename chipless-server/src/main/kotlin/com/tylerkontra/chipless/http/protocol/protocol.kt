@@ -37,12 +37,13 @@ data class Game(
 }
 
 data class Player(
+    val id: Long,
     val name: String,
     val buyCount: Int,
 ) {
     companion object {
         fun fromModel(p: com.tylerkontra.chipless.model.Player): Player {
-            return Player(p.name, p.buyCount)
+            return Player(p.id, p.name, p.buyCount)
         }
     }
 }
@@ -79,16 +80,27 @@ data class GameAdminView(
     val players: List<PlayerAdminView>,
     val hands: List<Hand>,
     val currentHand: Hand?,
+    var nextHandOrder: List<PlayerAdminView>,
+    var playersBankrupt: List<PlayerAdminView>,
+    var newPlayers: List<PlayerAdminView>
 ) {
     companion object {
-        fun fromModel(game: com.tylerkontra.chipless.model.Game) =
-            GameAdminView(
+        fun fromModel(game: com.tylerkontra.chipless.model.Game): GameAdminView {
+            val nextHandPlayers = game.nextHandPlayers()
+            val playersBankrupt = game.playersBankrupt()
+            var existingPlayers = nextHandPlayers.union(playersBankrupt).map { it.id }.toSet()
+            var newPlayers = game.players.filter { !existingPlayers.contains(it.id) }
+            return GameAdminView(
                 Game.fromModel(game),
                 game.adminCode.prettyPrint(),
                 game.players.map { PlayerAdminView.fromModel(it) },
                 game.hands.map { Hand.fromModel(it) },
-                game.latestHand()?.let { Hand.fromModel(it) }
+                game.latestHand()?.let { Hand.fromModel(it) },
+                nextHandPlayers.map(PlayerAdminView::fromModel),
+                playersBankrupt.map(PlayerAdminView::fromModel),
+                newPlayers.map(PlayerAdminView::fromModel)
             )
+        }
     }
 }
 
@@ -97,6 +109,7 @@ data class Hand(
     val sequence: Int,
     val players: List<HandPlayer>,
     val rounds: List<BettingRound>,
+    val currentRound: BettingRound,
     val isFinished: Boolean,
 ) {
     companion object {
@@ -106,7 +119,8 @@ data class Hand(
                 hand.sequence,
                 hand.players.map(HandPlayer::fromModel),
                 hand.rounds.map { BettingRound.fromModel(it) },
-                hand.isFinished
+                hand.currentRound().let(BettingRound::fromModel),
+                hand.isFinished,
             )
     }
 }
@@ -116,6 +130,7 @@ data class HandPlayer(
     val winnings: Int?,
     val wager: Int?,
     val initialChips: Int,
+    val isDealer: Boolean,
 ) {
     companion object {
         fun fromModel(player: com.tylerkontra.chipless.model.HandPlayer): HandPlayer {
@@ -124,6 +139,7 @@ data class HandPlayer(
                 initialChips = player.initialChips,
                 winnings = player.winnings,
                 wager = player.wager,
+                isDealer = player.isDealer,
             )
         }
     }
@@ -133,6 +149,7 @@ data class BettingRound(
     val id: UUID,
     var sequence: Int,
     val players: List<Player>,
+    val currentPlayer: Player,
     val actions: List<PlayerAction>,
 ) {
     companion object {
@@ -141,6 +158,7 @@ data class BettingRound(
                 it.id,
                 it.sequence,
                 it.players.map { Player.fromModel(it) },
+                it.getCurrentActionPlayer().let(Player::fromModel),
                 it.actions.map { PlayerAction.fromModel(it.action) }
             )
         }
@@ -151,7 +169,8 @@ data class PlayerHandView(
     val hand: Hand,
     val player: PlayerAdminView,
     val isTurn: Boolean,
-    val availableActions: List<PlayerAction?>
+    val availableActions: List<PlayerAction?>,
+    val availableChips: Int,
 ) {
     companion object {
         fun fromModel(v: com.tylerkontra.chipless.model.PlayerHandView): PlayerHandView {
@@ -160,6 +179,7 @@ data class PlayerHandView(
                 player = PlayerAdminView.fromModel(v.player),
                 isTurn = v.isPlayerTurn(),
                 availableActions = v.availableActions().map(PlayerAction::fromModel),
+                availableChips = v.availableChips(),
             )
         }
     }

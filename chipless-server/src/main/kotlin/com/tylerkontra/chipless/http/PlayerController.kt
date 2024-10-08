@@ -6,6 +6,8 @@ import com.tylerkontra.chipless.http.protocol.PlayerHandView
 import com.tylerkontra.chipless.model.ChiplessError
 import com.tylerkontra.chipless.model.ShortCode
 import com.tylerkontra.chipless.service.GameService
+import io.swagger.v3.oas.annotations.headers.Header
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -24,6 +26,7 @@ class PlayerController(
     }
 
     @GetMapping("/hand")
+    @ApiResponse(responseCode = "200", headers = [Header(name=HttpHeaders.ETAG)])
     fun viewCurrentHand(@PathVariable playerCode: ShortCode): ResponseEntity<PlayerHandView> {
         var v = gameService.getPlayerHandViewByCode(playerCode)
         var h = HttpHeaders()

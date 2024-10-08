@@ -74,24 +74,25 @@ class GameService(
 
     private fun createHand(game: Game, input: HandInput): Hand {
         val sequence = input.sequence
-        val excludePlayerIds = input.excludePlayerIds
-        var (sittingOut, playing) = game.playerChips().partition { excludePlayerIds.contains(it.id) || it.availableChips <= 0 }
         var previousHand = game.latestHand()
         var hand =  handRepository.save(
             Hand(
                 sequence,
                 entityManager.getReference(com.tylerkontra.chipless.storage.game.Game::class.java, game.id),
                 mutableListOf(),
-                sittingOut.map { playerRef(it.player) }.toMutableList(),
+                mutableListOf(),
             )
         )
+
+        var (playing, sittingOut) = game.playerChips().partition { input.seatOrderPlayerIds.playerIds.contains(it.id) }
         if (input.hasValidSeatOrder(playing.map { it.id })) {
             playing = playing.sortedWith(input.compareBySeatOrder { it.player })
         } else if (previousHand != null) {
-            val players = previousHand.players.filterNot { excludePlayerIds.contains(it.player.id) }.toMutableList()
-            Collections.rotate(players, -1)
-            val withNewSeatOrder = input.copy(seatOrderPlayerIds = players.map { it.player.id })
-            playing = playing.sortedWith(withNewSeatOrder.compareBySeatOrder { it.player })
+            val nextRoundPlayers = SmallBlindSeatOrder(previousHand.players.map { it.player.id })
+            val withNewSeatOrder = input.copy(seatOrderPlayerIds = nextRoundPlayers.nextHandOrder())
+            playing = game.playerChips().filter { it.availableChips > 0 }.sortedWith(withNewSeatOrder.compareBySeatOrder { it.player })
+        } else {
+            playing = game.playerChips().filter { it.availableChips > 0 }
         }
         val handPlayers = playing.mapIndexed { index, player ->
             HandPlayer(
@@ -101,7 +102,9 @@ class GameService(
                 player.availableChips,
             )
         }
-        hand.players.addAll(handPlayers.toMutableList())
+        hand.players.addAll(handPlayers)
+        hand.sittingOut.addAll(sittingOut.map { playerRef(it.player) })
+
         val bettingRound = newBettingRound(hand)
         hand.rounds.add(bettingRound)
         hand = handRepository.save(hand)
@@ -201,19 +204,21 @@ class GameService(
         }
 
         data class HandInput private constructor(
-            val excludePlayerIds: List<Long> = listOf(),
             // dealer id first
-            val seatOrderPlayerIds: List<Long> = listOf(),
+            val seatOrderPlayerIds: SmallBlindSeatOrder,
             val sequence: Int = 0,
         ) {
-            constructor(excludePlayerIds: List<Long> = listOf(), seatOrderPlayerIds: List<Long> = listOf()): this(excludePlayerIds, seatOrderPlayerIds, 0) {}
-            private val seatOrder = compareBy<Player> { seatOrderPlayerIds.indexOf(it.id) }
+            constructor(seatOrderPlayerIds: SmallBlindSeatOrder): this(seatOrderPlayerIds, 0) {}
+            companion object {
+                fun default(): HandInput = HandInput(SmallBlindSeatOrder.empty())
+            }
+            private val seatOrder = compareBy<Player> { seatOrderPlayerIds.playerIds.indexOf(it.id) }
 
             fun <E> compareBySeatOrder(selector: (E) -> Player) = compareBy(seatOrder, selector)
 
             fun hasValidSeatOrder(playerIds: List<Long>): Boolean {
-                if (seatOrderPlayerIds.isEmpty()) return false
-                if (seatOrderPlayerIds.toSet().intersect(playerIds.toSet()).size < playerIds.size)
+                if (seatOrderPlayerIds.playerIds.isEmpty()) return false
+                if (seatOrderPlayerIds.playerIds.toSet().intersect(playerIds.toSet()).size < playerIds.size)
                     throw IllegalArgumentException("seat order must specify all players")
                 return true
             }

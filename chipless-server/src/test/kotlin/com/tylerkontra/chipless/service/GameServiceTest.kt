@@ -60,7 +60,7 @@ class GameServiceTest {
         assertThat(game.hands).isEmpty()
 
         game = transactionTemplate.execute { s ->
-            gameService.startHand(game, GameService.Companion.HandInput())
+            gameService.startHand(game, GameService.Companion.HandInput.default())
         } ?: throw RuntimeException("game did not start")
         assertThat(game.hands).hasSize(1)
         assertThat(game.latestHand()).isNotNull()
@@ -136,7 +136,7 @@ class GameServiceTest {
         }
 
         // start second hand, dealer advances
-        game = transactionTemplate.execute { status -> gameService.startHand(getGame(), GameService.Companion.HandInput()) }!!
+        game = transactionTemplate.execute { status -> gameService.startHand(getGame(), GameService.Companion.HandInput.default()) }!!
         assertThat(game.latestHand()?.sequence).isEqualTo(2)
         assertThat(game.latestHand()!!.currentRound()?.getCurrentActionPlayer()).has(isPlayer(brian))
     }

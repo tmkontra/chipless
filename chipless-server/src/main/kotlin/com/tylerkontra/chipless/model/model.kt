@@ -52,6 +52,26 @@ data class Game(
     fun playerChips(): List<PlayerChips> =
         players.map { PlayerChips(it, it.availableChips(hands)) }
 
+    fun nextHandPlayers(): List<Player> {
+        var chipsByPlayer = playerChips().associate { Pair(it.player.id, it) }
+        var nextRound = nextRoundOrder()
+        return nextRound.mapNotNull { chipsByPlayer.get(it.id) }.filter { it.availableChips > 0 }.map { it.player }
+    }
+
+    fun playersBankrupt(): List<Player> {
+        var chipsByPlayer = playerChips().associate { Pair(it.player.id, it) }
+        var nextRound = nextRoundOrder()
+        return nextRound.mapNotNull { chipsByPlayer.get(it.id) }.filter { it.availableChips <= 0 }.map { it.player }
+    }
+
+    private fun nextRoundOrder(): List<Player> {
+        return latestHand()?.players?.let {
+            var r = it.toMutableList()
+            Collections.rotate(r, -1)
+            r.map { it.player }
+        } ?: this.players.toMutableList()
+    }
+
     companion object {
         fun fromStorage(game: com.tylerkontra.chipless.storage.game.Game): Game {
             return Game(
@@ -140,9 +160,8 @@ data class Hand(
     fun roundWager(player: Player): Int =
         currentRound()?.actions?.filter { it.player.id == player.id }?.maxOfOrNull { it.action.chipCount } ?: 0
 
-    fun currentRound(): BettingRound? {
-        if (rounds.isEmpty()) throw ChiplessError.InvalidStateError("no betting round")
-        return rounds.lastOrNull()
+    fun currentRound(): BettingRound {
+        return rounds.lastOrNull() ?: throw ChiplessError.InvalidStateError("no betting round")
     }
 
     val isFinished: Boolean = isComplete
@@ -168,6 +187,7 @@ data class HandPlayer(
     val player: Player,
     val initialChips: Int,
     val winnings: Int?,
+    val isDealer: Boolean,
     private val actions: List<com.tylerkontra.chipless.storage.hand.BettingAction>
 ) {
     val wager: Int = actions.sumOf { it.chipCount ?: 0 }
@@ -183,6 +203,7 @@ data class HandPlayer(
                 Player.fromStorage(player.player),
                 player.initialChips,
                 player.winnings,
+                player.isDealer(),
                 playerActions,
             )
         }
@@ -253,12 +274,12 @@ data class BettingRound (
     companion object {
         val logger = LoggerFactory.getLogger(BettingRound::class.java)
 
-        fun fromStorage(it: com.tylerkontra.chipless.storage.hand.BettingRound): BettingRound {
+        fun fromStorage(round: com.tylerkontra.chipless.storage.hand.BettingRound): BettingRound {
             return BettingRound(
-                it.id,
-                it.sequence,
-                it.players.map(Player::fromStorage),
-                it.actions.map(BettingAction::fromStorage)
+                round.id,
+                round.sequence,
+                round.players.sortedBy { round.hand.players.map { it.player.id }.indexOf(it.id) }.map(Player::fromStorage),
+                round.actions.map(BettingAction::fromStorage)
             )
         }
     }
@@ -404,3 +425,19 @@ data class PlayerHandView(
     }
 }
 
+data class SmallBlindSeatOrder(val playerIds: List<Long>) {
+    fun nextHandOrder(): SmallBlindSeatOrder {
+        val nextRound = playerIds.toMutableList()
+        Collections.rotate(nextRound, -1)
+        return SmallBlindSeatOrder(nextRound)
+    }
+
+    companion object {
+        fun empty(): SmallBlindSeatOrder {
+            return SmallBlindSeatOrder(listOf())
+        }
+    }
+}
+
+data class DealerSeatOrder(val playerIds: List<Long>) {
+}

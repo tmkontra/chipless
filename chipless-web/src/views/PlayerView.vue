@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { apiClient } from '@/api/client'
 import { type PlayerAdminView, type PlayerHandView } from '@/api/gen'
+import PlayerHand from '@/components/PlayerHand.vue'
+import PokerTable from '@/components/table/PokerTable.vue'
 import { HttpStatusCode, type AxiosError } from 'axios'
 import { onBeforeMount, Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
@@ -13,6 +15,8 @@ const player: Ref<PlayerAdminView | null> = ref(null)
 const hand: Ref<PlayerHandView | null> = ref(null)
 const handError = ref('')
 
+const handEtag = ref('')
+
 onBeforeMount(() => {
   apiClient
     .get(`/player/${route.params.code}`)
@@ -23,7 +27,11 @@ onBeforeMount(() => {
 
   apiClient
     .get(`player/${route.params.code}/hand`)
-    .then((resp) => resp.data as PlayerHandView)
+    .then((resp) => {
+      const etag = resp.headers['ETag']
+      handEtag.value = etag
+      return resp.data as PlayerHandView
+    })
     .then((view) => {
       hand.value = view
     })
@@ -38,7 +46,7 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <main class="w-full px-4 lg:w-1/2 lg:mx-auto lg:px-0">
+  <main class="w-full px-4 lg:w-1/2 lg:mx-auto lg:px-0 mb-8">
     <p v-if="playerError != ''">{{ playerError }}</p>
     <div v-if="player" class="w-full border rounded-lg p-4">
       <div class="mb-4">
@@ -49,7 +57,8 @@ onBeforeMount(() => {
       </div>
       <p v-if="handError">Waiting For Hand To Start</p>
       <div v-if="hand">
-        <p>Hand</p>
+        <PokerTable :hand="hand.hand" :key="handEtag" />
+        <PlayerHand :hand="hand" :key="handEtag" />
       </div>
     </div>
   </main>

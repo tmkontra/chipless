@@ -11,6 +11,7 @@ export type BettingRound = {
     id: string;
     sequence: number;
     players: Array<Player>;
+    currentPlayer: Player;
     actions: Array<PlayerAction>;
 };
 
@@ -23,6 +24,7 @@ export type Hand = {
     sequence: number;
     players: Array<HandPlayer>;
     rounds: Array<BettingRound>;
+    currentRound: BettingRound;
     isFinished: boolean;
 };
 
@@ -31,9 +33,11 @@ export type HandPlayer = {
     winnings?: number;
     wager?: number;
     initialChips: number;
+    isDealer: boolean;
 };
 
 export type Player = {
+    id: number;
     name: string;
     buyCount: number;
 };
@@ -50,6 +54,7 @@ export type PlayerHandView = {
     player: PlayerAdminView;
     isTurn: boolean;
     availableActions: Array<PlayerAction>;
+    availableChips: number;
 };
 
 export type CreateGame = {
@@ -73,6 +78,9 @@ export type GameAdminView = {
     players: Array<PlayerAdminView>;
     hands: Array<Hand>;
     currentHand?: Hand;
+    nextHandOrder: Array<PlayerAdminView>;
+    playersBankrupt: Array<PlayerAdminView>;
+    newPlayers: Array<PlayerAdminView>;
 };
 
 export type PlayerActionData = {
@@ -127,7 +135,9 @@ export type StartHandData = {
         adminCode: string;
     };
     query?: {
-        excludePlayerIds?: Array<(number)>;
+        /**
+         * the players for this hand, beginning with the small blind (player seated left of the dealer)
+         */
         seatOrderPlayerIds?: Array<(number)>;
     };
 };

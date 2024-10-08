@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { apiClient } from '@/api/client'
-import { type GameAdminView } from '@/api/gen'
+import { type GameAdminView, type StartHandData } from '@/api/gen'
 import { onBeforeMount, type Ref, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AdminStartHandView from '../components/StartHand.vue'
+import TableView from '@/components/table/PokerTable.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,14 +41,26 @@ const submitCashout = (playerCode: string) => {
     .then(() => fetchGame())
 }
 
-const confirmStartHand = () => {
-  console.log('start hand')
-  router.push(window.location.pathname + '/start')
+const startHand = (seatOrderPlayerIds: Array<number>) => {
+  const query: StartHandData['query'] = {
+    seatOrderPlayerIds
+  }
+  apiClient
+    .post(`/gameAdmin/${route.params.code}/hand`, undefined, {
+      params: query,
+      paramsSerializer: {
+        indexes: null
+      }
+    })
+    .then((resp) => resp.data as GameAdminView)
+    .then((gameView) => {
+      game.value = gameView
+    })
 }
 </script>
 
 <template>
-  <main v-if="game" class="w-full px-4 lg:w-1/2 lg:mx-auto lg:px-0 mb-8">
+  <main v-if="game" class="w-full px-4 md:w-4/5 xl:w-3/4 md:mx-auto lg:px-0 mb-8">
     <div class="mb-4">
       <h1>{{ game.game.name }}</h1>
       <div>
@@ -115,15 +129,18 @@ const confirmStartHand = () => {
       <div
         class="w-full p-6 bg-white border border-gray-200 flex flex-row justify-between items-center"
       >
-        <div v-if="game.currentHand">
-          <div v-if="game.currentHand?.isFinished">
-            <p>previous hand</p>
-            <button class="btn-primary" @click="confirmStartHand()">Start Next Hand</button>
-          </div>
-          <p v-else>current hand</p>
+        <div v-if="game.currentHand?.isFinished">
+          <p>previous hand</p>
+          <button class="btn-primary" @click="startHand([])">Start Next Hand</button>
         </div>
-        <div v-else>
-          <button class="btn-primary" @click="confirmStartHand()">Start Game</button>
+        <TableView v-else-if="game.currentHand" :hand.sync="game.currentHand" />
+        <div v-else="game">
+          <AdminStartHandView
+            :game="game"
+            :sitting-out="game.newPlayers"
+            :hand-players="game.nextHandOrder"
+            @start-hand="startHand"
+          />
         </div>
       </div>
     </div>
