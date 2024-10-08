@@ -1,16 +1,16 @@
 import type { PlayerAction } from './gen'
 
-export function actionTypeName(action: PlayerAction): string {
+export function actionDisplay(action: PlayerAction): string {
   switch (action.actionType) {
     case 'CHECK':
       return 'Check'
     case 'FOLD':
       return 'Fold'
     case 'BET':
-      return 'Bet'
+      return 'Bet ' + action.chipCount
     case 'RAISE':
-      return 'Raise'
+      return 'Raise ' + action.chipCount
     case 'CALL':
-      return 'Call'
+      return 'Call ' + action.chipCount
   }
 }

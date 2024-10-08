@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { actionTypeName } from '@/api/extension'
+import { actionDisplay } from '@/api/extension'
 import type { HandPlayer, PlayerAction, PlayerAdminView } from '@/api/gen'
 import { onMounted, ref } from 'vue'
 
@@ -37,17 +37,36 @@ onMounted(() => calc())
 </script>
 
 <template>
-  <div class="player flex flex-col justify-center items-center" :class="{ active: isTurn }">
-    <p>{{ player.player.name }}</p>
-    <p v-if="player.isDealer">D</p>
+  <div
+    class="player flex flex-col justify-center items-center"
+    :class="{ active: isTurn, winner: player.winnings ?? 0 > 0 }"
+  >
     <p>
-      <span v-if="lastAction">{{ actionTypeName(lastAction) }}</span
-      >{{ ' ' }} {{ player.wager }}
+      {{ player.player.name }}
+      <div v-if="player.isDealer" class="dealer-button">{{ ' ' }}</div>
+    </p>
+    <p>
+      <span v-if="player.winnings">Win {{ player.winnings }}</span>
+      <span v-else-if="lastAction">{{ actionDisplay(lastAction) }}</span>
     </p>
   </div>
 </template>
 
 <style scoped>
+.dealer-button::before {
+  content: 'D';
+}
+.dealer-button {
+  border: 3px gray dotted;
+  background-color: skyblue;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .player.active {
   background-color: var(--p-primary-300);
   border: 3px var(--p-primary-600) solid;
@@ -60,5 +79,8 @@ onMounted(() => calc())
   height: v-bind(dimension);
   background-color: var(--p-primary-300);
   border-radius: 16px;
+}
+.player.winner {
+  border-color: #059669;
 }
 </style>

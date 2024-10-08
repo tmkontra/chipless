@@ -39,7 +39,7 @@ const handleAction = (action: PlayerAction) => {
   <div class="flex flex-col gap-4">
     <ChipStack
       :is-turn="props.hand.isTurn"
-      :available-chips="props.hand.hand.availableChips"
+      :available-chips="props.hand.availableChips"
       v-model:current-wager="currentWager"
     />
     <div class="flex flex-row justify-around">
