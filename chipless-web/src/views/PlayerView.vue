@@ -1,10 +1,15 @@
 <script setup lang="ts">
 import { apiClient } from '@/api/client'
-import { type PlayerAdminView, type PlayerHandView } from '@/api/gen'
+import {
+  type PlayerAction,
+  type PlayerActionData,
+  type PlayerAdminView,
+  type PlayerHandView
+} from '@/api/gen'
 import PlayerHand from '@/components/PlayerHand.vue'
 import PokerTable from '@/components/table/PokerTable.vue'
 import { HttpStatusCode, type AxiosError } from 'axios'
-import { onBeforeMount, Ref, ref } from 'vue'
+import { onBeforeMount, type Ref, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
@@ -17,9 +22,9 @@ const handError = ref('')
 
 const handEtag = ref('')
 
-onBeforeMount(() => {
+const fetchPlayer = () => {
   apiClient
-    .get(`/player/${route.params.code}`)
+    .get(`/player/${route.params.code as string}`)
     .then((resp) => resp.data as PlayerAdminView)
     .then((playerView) => {
       player.value = playerView
@@ -28,7 +33,8 @@ onBeforeMount(() => {
   apiClient
     .get(`player/${route.params.code}/hand`)
     .then((resp) => {
-      const etag = resp.headers['ETag']
+      console.log(resp.headers)
+      const etag = resp.headers['etag']
       handEtag.value = etag
       return resp.data as PlayerHandView
     })
@@ -42,7 +48,20 @@ onBeforeMount(() => {
         playerError.value = 'No player found'
       }
     })
-})
+}
+
+const submitPlayerAction = (action: PlayerAction): void => {
+  console.log('etag', handEtag.value)
+  apiClient
+    .post(`/player/${route.params.code as string}/action`, action, {
+      headers: {
+        'If-Match': handEtag.value
+      }
+    })
+    .then(() => fetchPlayer())
+}
+
+onBeforeMount(() => fetchPlayer())
 </script>
 
 <template>
@@ -58,7 +77,7 @@ onBeforeMount(() => {
       <p v-if="handError">Waiting For Hand To Start</p>
       <div v-if="hand">
         <PokerTable :hand="hand.hand" :key="handEtag" />
-        <PlayerHand :hand="hand" :key="handEtag" />
+        <PlayerHand :hand="hand" :key="handEtag" @submit-action="submitPlayerAction" />
       </div>
     </div>
   </main>

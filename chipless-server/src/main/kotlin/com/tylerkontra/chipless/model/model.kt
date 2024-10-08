@@ -155,7 +155,7 @@ data class Hand(
     val nextRoundPlayers: List<Player>,
 ) {
     fun playerWager(player: Player): Int =
-        rounds.dropLast(1).flatMap { it.actions.filter { it.player.id == player.id } }.maxOfOrNull { it.action.chipCount } ?: 0
+        rounds.flatMap { it.actions.filter { it.player.id == player.id } }.maxOfOrNull { it.action.chipCount } ?: 0
 
     fun roundWager(player: Player): Int =
         currentRound()?.actions?.filter { it.player.id == player.id }?.maxOfOrNull { it.action.chipCount } ?: 0

@@ -45,7 +45,7 @@ const onClick = () => {
   color: white;
   font-family: 'Lato', sans-serif;
   font-size: 20px;
-  margin: 0px 8px;
+  margin: 0px 0px;
 }
 
 .chip.disabled {

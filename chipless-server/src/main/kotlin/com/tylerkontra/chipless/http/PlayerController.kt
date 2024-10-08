@@ -41,7 +41,8 @@ class PlayerController(
         @RequestHeader(HttpHeaders.IF_MATCH) handState: String,
     ): PlayerHandView {
         val currentHand = gameService.getPlayerHandViewByCode(playerCode)
-        if (!currentHand.matches(handState)) {
+        val handStateValue = handState.dropWhile { it.equals('"') }.dropLastWhile { it.equals('"') }
+        if (!currentHand.matches(handStateValue)) {
              throw ResponseStatusException(HttpStatus.PRECONDITION_FAILED)
         }
         val updatedHand = gameService.doPlayerAction(currentHand, action.toModel())
